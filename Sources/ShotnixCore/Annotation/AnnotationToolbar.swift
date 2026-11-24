@@ -471,7 +471,12 @@ final class AnnotationToolbar: NSView {
     }
 
     private func makeToolButton(tool: AnnotationTool) -> EditorChromeButton {
-        let btn = EditorChromeButton(symbol: tool.icon, label: tool.name)
+        let btn: EditorChromeButton
+        if let customIcon = AnnotationToolbar.customIcon(for: tool) {
+            btn = EditorChromeButton(image: customIcon, label: tool.name)
+        } else {
+            btn = EditorChromeButton(symbol: tool.icon, label: tool.name)
+        }
         btn.toolTip = tool.tooltip
         btn.target = self
         btn.action = #selector(toolTapped(_:))
@@ -629,6 +634,167 @@ final class AnnotationToolbar: NSView {
             drawLetter(reach: 1.2)
             ctx.setBlendMode(.normal)
             drawLetter(reach: 0)
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }()
+
+    static func customIcon(for tool: AnnotationTool) -> NSImage? {
+        switch tool {
+        case .freehand:
+            return pencilIcon
+        case .highlighter, .freehandHighlighter:
+            return highlighterIcon
+        default:
+            return nil
+        }
+    }
+
+    /// Classic hexagonal wooden pencil with ferrule, eraser, sharpened wood cone, and lead tip.
+    static let pencilIcon: NSImage = {
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+            guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
+            ctx.saveGState()
+            let size = rect.width
+            ctx.translateBy(x: size / 2.0, y: size / 2.0)
+            ctx.rotate(by: -.pi / 4.0)
+
+            let s = size / 18.0
+            let w = 4.0 * s
+            let halfW = w / 2.0
+
+            let tipY = -7.6 * s
+            let leadCutY = -5.8 * s
+            let woodY = -3.8 * s
+            let ferruleBottomY = 3.6 * s
+            let ferruleTopY = 5.2 * s
+            let eraserTopY = 7.4 * s
+
+            NSColor.black.set()
+
+            // 1. Eraser (rounded rectangle at the top)
+            let eraser = NSBezierPath(
+                roundedRect: NSRect(x: -halfW + 0.3 * s, y: ferruleTopY, width: (halfW - 0.3 * s) * 2, height: eraserTopY - ferruleTopY),
+                xRadius: 1.2 * s,
+                yRadius: 1.2 * s
+            )
+            eraser.fill()
+
+            // 2. Ferrule (metal collar band)
+            NSRect(x: -halfW - 0.2 * s, y: ferruleBottomY, width: w + 0.4 * s, height: ferruleTopY - ferruleBottomY).fill()
+
+            ctx.setBlendMode(.clear)
+            ctx.setLineWidth(0.6 * s)
+            ctx.move(to: CGPoint(x: -halfW - 0.2 * s, y: (ferruleBottomY + ferruleTopY) / 2.0))
+            ctx.addLine(to: CGPoint(x: halfW + 0.2 * s, y: (ferruleBottomY + ferruleTopY) / 2.0))
+            ctx.strokePath()
+            ctx.setBlendMode(.normal)
+
+            // 3. Hexagonal body with longitudinal facet divider lines
+            NSRect(x: -halfW, y: woodY, width: w, height: ferruleBottomY - woodY).fill()
+
+            ctx.setBlendMode(.clear)
+            ctx.setLineWidth(0.5 * s)
+            ctx.move(to: CGPoint(x: -halfW * 0.35, y: woodY))
+            ctx.addLine(to: CGPoint(x: -halfW * 0.35, y: ferruleBottomY))
+            ctx.move(to: CGPoint(x: halfW * 0.35, y: woodY))
+            ctx.addLine(to: CGPoint(x: halfW * 0.35, y: ferruleBottomY))
+            ctx.strokePath()
+            ctx.setBlendMode(.normal)
+
+            // 4. Sharpened wood cone
+            let cone = NSBezierPath()
+            cone.move(to: NSPoint(x: -halfW, y: woodY))
+            cone.line(to: NSPoint(x: halfW, y: woodY))
+            cone.line(to: NSPoint(x: 0, y: tipY))
+            cone.close()
+            cone.fill()
+
+            // 5. Scallop cut line separating wood and graphite lead tip
+            ctx.setBlendMode(.clear)
+            ctx.setLineWidth(0.6 * s)
+            ctx.move(to: CGPoint(x: -halfW * 0.55, y: leadCutY))
+            ctx.addLine(to: CGPoint(x: halfW * 0.55, y: leadCutY))
+            ctx.strokePath()
+
+            ctx.restoreGState()
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }()
+
+    /// Classic chunky highlighter with rounded body, grip slot, neck collar, and angled chisel tip.
+    static let highlighterIcon: NSImage = {
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+            guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
+            ctx.saveGState()
+            let size = rect.width
+            ctx.translateBy(x: size / 2.0, y: size / 2.0)
+            ctx.rotate(by: -.pi / 4.0)
+
+            let s = size / 18.0
+            let bodyW = 5.6 * s
+            let halfBW = bodyW / 2.0
+
+            NSColor.black.set()
+
+            // 1. Chunky body with rounded top/base
+            let body = NSBezierPath(
+                roundedRect: NSRect(x: -halfBW, y: -2.6 * s, width: bodyW, height: 10.2 * s),
+                xRadius: 1.6 * s,
+                yRadius: 1.6 * s
+            )
+            body.fill()
+
+            // Grip divider line and accent slot
+            ctx.setBlendMode(.clear)
+            ctx.setLineWidth(0.65 * s)
+            ctx.move(to: CGPoint(x: -halfBW - 0.2 * s, y: 1.0 * s))
+            ctx.addLine(to: CGPoint(x: halfBW + 0.2 * s, y: 1.0 * s))
+            ctx.strokePath()
+
+            let capSlot = NSBezierPath(
+                roundedRect: NSRect(x: -0.7 * s, y: 2.4 * s, width: 1.4 * s, height: 3.8 * s),
+                xRadius: 0.7 * s,
+                yRadius: 0.7 * s
+            )
+            capSlot.fill()
+            ctx.setBlendMode(.normal)
+
+            // 2. Collar / neck tapering to the tip
+            let neck = NSBezierPath()
+            neck.move(to: NSPoint(x: -halfBW + 0.5 * s, y: -2.6 * s))
+            neck.line(to: NSPoint(x: halfBW - 0.5 * s, y: -2.6 * s))
+            neck.line(to: NSPoint(x: 1.7 * s, y: -4.8 * s))
+            neck.line(to: NSPoint(x: -1.7 * s, y: -4.8 * s))
+            neck.close()
+            neck.fill()
+
+            ctx.setBlendMode(.clear)
+            ctx.setLineWidth(0.65 * s)
+            ctx.move(to: CGPoint(x: -halfBW, y: -2.6 * s))
+            ctx.addLine(to: CGPoint(x: halfBW, y: -2.6 * s))
+            ctx.strokePath()
+            ctx.setBlendMode(.normal)
+
+            // 3. Chisel tip: characteristic angled wedge
+            let chisel = NSBezierPath()
+            chisel.move(to: NSPoint(x: -1.5 * s, y: -4.8 * s))
+            chisel.line(to: NSPoint(x: 1.5 * s, y: -4.8 * s))
+            chisel.line(to: NSPoint(x: 1.5 * s, y: -6.6 * s))
+            chisel.line(to: NSPoint(x: -1.5 * s, y: -8.2 * s))
+            chisel.close()
+            chisel.fill()
+
+            ctx.setBlendMode(.clear)
+            ctx.setLineWidth(0.65 * s)
+            ctx.move(to: CGPoint(x: -1.7 * s, y: -4.8 * s))
+            ctx.addLine(to: CGPoint(x: 1.7 * s, y: -4.8 * s))
+            ctx.strokePath()
+
+            ctx.restoreGState()
             return true
         }
         image.isTemplate = true
@@ -1149,6 +1315,14 @@ private final class EditorChromeButton: NSButton {
         self.init(frame: .zero)
         image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?
             .withSymbolConfiguration(.init(pointSize: 15, weight: .medium))
+        imagePosition = .imageOnly
+        setAccessibilityLabel(label)
+        updateChrome()
+    }
+
+    convenience init(image: NSImage?, label: String) {
+        self.init(frame: .zero)
+        self.image = image
         imagePosition = .imageOnly
         setAccessibilityLabel(label)
         updateChrome()

@@ -77,7 +77,7 @@ final class CaptureLocalizationTests: XCTestCase {
         for language in Self.languages {
             L10n.use(language)
             let screen = try XCTUnwrap(NSScreen.main)
-            let bar = RecordingControlsWindow(rect: screen.frame, screen: screen, target: .fullscreen, selectedWindow: nil, startHandler: { _, _, _ in }, closeHandler: {})
+            let bar = RecordingControlsWindow(screen: screen, target: .fullscreen, anchor: .zero, startHandler: {}, permissionsHandler: {}, closeHandler: {})
             bar.setFrameOrigin(RecordingUITestSupport.offscreen)
             bar.orderFrontRegardless()
             defer { bar.closeControls() }
@@ -89,8 +89,8 @@ final class CaptureLocalizationTests: XCTestCase {
             try snapshot(bar, "\(language)/recording-bar")
             let menu = bar.optionsMenu()
             try snapshot(menu: menu, "\(language)/recording-options-menu")
-            XCTAssertTrue(menu.items.map(\.title).contains(L("Open Editor After Recording")), language)
-            XCTAssertNotEqual(L("Open Editor After Recording"), "Open Editor After Recording", "\(language): translated")
+            XCTAssertTrue(menu.items.map(\.title).contains(L("Countdown")), language)
+            XCTAssertNotEqual(L("Countdown"), "Countdown", "\(language): translated")
         }
     }
 

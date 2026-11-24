@@ -144,8 +144,6 @@ final class RecordingEngine: NSObject {
             await waitUntilSaved(timeout: 30)
         }
         guard !active else {
-            // The recording bar left the camera preview running for us.
-            CameraCapture.shared.stop()
             ToastWindow.show(message: isFinishing ? L("Still saving the last recording — try again in a moment.") : L("Recording already in progress"), on: screen)
             return
         }

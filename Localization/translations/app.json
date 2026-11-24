@@ -522,6 +522,11 @@
     "fr" : "Conflit détecté",
     "zh-Hans" : "检测到冲突"
   },
+  "Continue" : {
+    "de" : "Weiter",
+    "fr" : "Continuer",
+    "zh-Hans" : "继续"
+  },
   "Copied to clipboard" : {
     "de" : "In die Zwischenablage kopiert",
     "fr" : "Copié dans le presse-papiers",
@@ -1573,6 +1578,11 @@
     "fr" : "Enregistrement",
     "zh-Hans" : "录制"
   },
+  "Recording Permissions" : {
+    "de" : "Aufnahmeberechtigungen",
+    "fr" : "Autorisations d’enregistrement",
+    "zh-Hans" : "录制权限"
+  },
   "Recording paused — click to stop (%@)" : {
     "de" : "Aufzeichnung pausiert – zum Stoppen klicken (%@)",
     "fr" : "Enregistrement suspendu — cliquez pour l’arrêter (%@)",
@@ -1768,6 +1778,11 @@
     "de" : "QR-Code scannen",
     "fr" : "Scanner un code QR",
     "zh-Hans" : "扫描二维码"
+  },
+  "Screen & System Audio Recording" : {
+    "de" : "Bildschirm- & Systemaudioaufnahme",
+    "fr" : "Enregistrement de l’écran et de l’audio système",
+    "zh-Hans" : "屏幕与系统音频录制"
   },
   "Screen Recording" : {
     "de" : "Bildschirmaufnahme",

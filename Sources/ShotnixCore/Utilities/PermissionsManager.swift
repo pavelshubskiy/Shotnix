@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import ScreenCaptureKit
 
 enum PermissionsManager {
@@ -66,6 +67,50 @@ enum PermissionsManager {
             alert.addButton(withTitle: L("Cancel"))
             if alert.runModal() == .alertFirstButtonReturn {
                 openScreenRecordingSettings()
+            }
+        }
+    }
+}
+
+/// The three macOS privacy entries required for user-selected recording sources.
+enum RecordingPermission: CaseIterable {
+    case screen, microphone, camera
+
+    var title: String {
+        switch self {
+        case .screen: L("Screen & System Audio Recording")
+        case .microphone: L("Microphone")
+        case .camera: L("Camera")
+        }
+    }
+
+    var isGranted: Bool {
+        switch self {
+        case .screen: PermissionsManager.hasScreenRecordingPermission
+        case .microphone: AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+        case .camera: AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+        }
+    }
+
+    @MainActor
+    func request() async {
+        switch self {
+        case .screen:
+            if !PermissionsManager.requestScreenRecordingPermission() {
+                PermissionsManager.openScreenRecordingSettings()
+            }
+        case .microphone, .camera:
+            let mediaType: AVMediaType = self == .microphone ? .audio : .video
+            switch AVCaptureDevice.authorizationStatus(for: mediaType) {
+            case .notDetermined:
+                _ = await AVCaptureDevice.requestAccess(for: mediaType)
+            case .denied, .restricted:
+                let entry = self == .microphone ? "Privacy_Microphone" : "Privacy_Camera"
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(entry)") {
+                    NSWorkspace.shared.open(url)
+                }
+            default:
+                break
             }
         }
     }

@@ -845,200 +845,81 @@ struct ScreenshotsSettingsView: View {
     }
 }
 
-private struct MicrophoneOption: Identifiable {
-    let id: String
-    let name: String
-}
-
-private enum MicrophoneDeviceProvider {
-    static var options: [MicrophoneOption] {
-        let deviceTypes: [AVCaptureDevice.DeviceType]
-        if #available(macOS 14.0, *) {
-            deviceTypes = [.microphone, .externalUnknown]
-        } else {
-            deviceTypes = [.builtInMicrophone, .externalUnknown]
-        }
-
-        return AVCaptureDevice.DiscoverySession(
-            deviceTypes: deviceTypes,
-            mediaType: .audio,
-            position: .unspecified
-        )
-        .devices
-        .sorted { $0.localizedName.localizedCaseInsensitiveCompare($1.localizedName) == .orderedAscending }
-        .map { MicrophoneOption(id: $0.uniqueID, name: $0.localizedName) }
-    }
-}
-
 struct RecordingSettingsView: View {
-    @AppStorage("recordingFPS") var fps = 60
-    @AppStorage("recordingQuality") var quality = "high"
-    @AppStorage("recordingShowsCursor") var showsCursor = true
-    @AppStorage("recordingSystemAudio") var systemAudio = false
-    @AppStorage("recordingMicrophone") var microphone = false
-    @AppStorage("recordingMicrophoneDeviceID") var microphoneDeviceID = ""
-    @AppStorage("recordingCamera") var camera = false
-    @AppStorage("recordingCameraDeviceID") var cameraDeviceID = ""
-    @AppStorage("recordingCountdownSeconds") var countdown = 0
-    @AppStorage("recordingHidesMenuBarIcons") var hidesMenuBarIcons = false
-    @AppStorage("recordingHidesDesktopIcons") var hidesDesktopIcons = false
-
-    private var microphones: [MicrophoneOption] { MicrophoneDeviceProvider.options }
-
-    /// A full-display recording of the main screen at the chosen settings.
-    private var sizeEstimate: String {
-        let screen = NSScreen.main ?? NSScreen.screens.first
-        let scale = screen?.backingScaleFactor ?? 2
-        let size = screen?.frame.size ?? CGSize(width: 1512, height: 982)
-        let bytes = RecordingSizeEstimate.bytesPerMinute(
-            pixelWidth: Int(size.width * scale),
-            pixelHeight: Int(size.height * scale),
-            fps: fps,
-            quality: RecordingQuality(rawValue: quality) ?? .high,
-            systemAudio: systemAudio,
-            microphone: microphone
-        )
-        return L("Full screen: \(RecordingSizeEstimate.label(bytesPerMinute: bytes))")
-    }
+    @State private var granted = Set<RecordingPermission>()
+    @State private var requesting: RecordingPermission?
 
     var body: some View {
         PreferencesPane {
-            PreferenceSection(L("Video")) {
-                PreferenceRow(L("Quality"), detail: sizeEstimate) {
-                    PreferenceMenuSelector(
-                        selection: $quality,
-                        options: [
-                            PreferenceOption(value: "balanced", title: L("Balanced")),
-                            PreferenceOption(value: "high", title: L("High")),
-                            PreferenceOption(value: "max", title: L("Max"))
-                        ]
-                    )
-                }
-
-                PreferenceDivider()
-
-                PreferenceRow(L("Frame rate")) {
-                    PreferenceSegmentedSelector(
-                        selection: $fps,
-                        options: [
-                            PreferenceOption(value: 30, title: "30 fps"), // l10n-ignore: fps is never translated
-                            PreferenceOption(value: 60, title: "60 fps") // l10n-ignore
-                        ]
-                    )
-                }
-
-                PreferenceDivider()
-
-                PreferenceRow(L("Countdown")) {
-                    PreferenceMenuSelector(
-                        selection: $countdown,
-                        options: Settings.recordingCountdownChoices.map {
-                            PreferenceOption(value: $0, title: $0 == 0 ? L("Off") : L("\($0) seconds"))
+            PreferenceSection(L("Recording Permissions")) {
+                ForEach(RecordingPermission.allCases, id: \.self) { permission in
+                    if permission != .screen { PreferenceDivider() }
+                    let available = granted.contains(permission)
+                    PreferenceRow(permission.title, detail: available ? L("Ready") : L("Permission needed")) {
+                        if available {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(ShotnixTheme.success)
+                                .accessibilityHidden(true)
+                        } else {
+                            Button(L("Allow Access…")) {
+                                requesting = permission
+                                Task {
+                                    await permission.request()
+                                    refresh()
+                                    requesting = nil
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(requesting != nil)
                         }
-                    )
-                }
-
-                PreferenceDivider()
-
-                PreferenceRow(L("Show cursor")) {
-                    Toggle("", isOn: $showsCursor)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                }
-
-            }
-
-            PreferenceFootnote(text: L("The countdown gives you a moment after pressing Record; Esc cancels it."))
-            PreferenceFootnote(text: L("Stop a recording with \(RecordingStopHotkey.displayText) from any app — plain Esc stays with the app you're recording."))
-
-            PreferenceSection(L("Audio")) {
-                PreferenceRow(L("Record system audio")) {
-                    Toggle("", isOn: $systemAudio)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                }
-
-                PreferenceDivider()
-
-                PreferenceRow(L("Record microphone")) {
-                    Toggle("", isOn: $microphone)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                }
-
-                PreferenceDivider()
-
-                PreferenceRow(L("Microphone")) {
-                    PreferenceMenuSelector(
-                        selection: $microphoneDeviceID,
-                        options: [PreferenceOption(value: "", title: L("System Default"))]
-                            + microphones.map { PreferenceOption(value: $0.id, title: $0.name) },
-                        width: 190,
-                        isEnabled: microphone
-                    )
-                }
-            }
-
-            PreferenceFootnote(text: L("Microphone recording requires macOS microphone permission. System audio excludes Shotnix sounds to avoid feedback."))
-
-            PreferenceSection(L("Camera")) {
-                PreferenceRow(L("Record camera")) {
-                    Toggle("", isOn: $camera)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                }
-
-                PreferenceDivider()
-
-                PreferenceRow(L("Camera")) {
-                    PreferenceMenuSelector(
-                        selection: $cameraDeviceID,
-                        options: [PreferenceOption(value: "", title: L("System Default"))]
-                            + CameraCapture.devices.map { PreferenceOption(value: $0.uniqueID, title: $0.localizedName) },
-                        width: 190,
-                        isEnabled: camera
-                    )
-                }
-            }
-
-            PreferenceFootnote(text: L("Your camera is recorded as its own layer: a live bubble shows while you record (it never appears in the screen capture), and the editor lets you move, resize, and restyle it — or hide it — afterwards."))
-
-            PreferenceSection(L("Privacy")) {
-                // Before macOS 26 other apps' menu bar icons are their own
-                // windows: there's no leaving them out as one.
-                if RecordingMenuBar.controlCenterHostsEveryItem {
-                    PreferenceRow(L("Hide menu bar icons")) {
-                        Toggle("", isOn: $hidesMenuBarIcons)
-                            .labelsHidden()
-                            .toggleStyle(.switch)
                     }
-
-                    PreferenceDivider()
-                }
-
-                PreferenceRow(L("Hide desktop icons")) {
-                    Toggle("", isOn: $hidesDesktopIcons)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
                 }
             }
 
-            PreferenceFootnote(text: RecordingMenuBar.controlCenterHostsEveryItem
-                ? L("Hide menu bar icons leaves the icons and the clock on the right of the menu bar out of the video, while you still see them on your screen. Hide desktop icons covers the files, folders and widgets on the display you record until the recording stops. The recording timer in the menu bar and the purple indicator beside it are always left out.")
-                : L("Hide desktop icons covers the files, folders and widgets on the display you record until the recording stops."))
-
-
+            if !granted.contains(.screen), Settings.didRequestScreenRecordingPermission {
+                PreferenceFootnote(text: L("Enable Shotnix in System Settings, then relaunch so macOS applies it."))
+                Button(L("Quit & Reopen")) {
+                    AppRelaunch.restart(reopeningSettings: true)
+                }
+            }
         }
+        .onAppear(perform: refresh)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refresh()
+        }
+    }
+
+    private func refresh() {
+        granted = Set(RecordingPermission.allCases.filter(\.isGranted))
     }
 }
 
 struct AboutSettingsView: View {
+    private var mark: NSImage? {
+        ShotnixResources.url(forResource: "egghead-mark", withExtension: "png").flatMap { NSImage(contentsOf: $0) }
+    }
+
     var body: some View {
-        PreferencesPane {
-            Text(verbatim: "Shotnix fork by Shubskiy") // l10n-ignore: app name and credit
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: 14) {
+            if let mark {
+                Image(nsImage: mark)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 116, height: 120)
+                    .foregroundStyle(.primary)
+                    .accessibilityHidden(true)
+            }
+
+            Text(verbatim: "Shotnix fork") // l10n-ignore: app name
+                .font(.system(size: 30, weight: .semibold))
+                .accessibilityAddTraits(.isHeader)
+
+            Text(verbatim: "By Pashunya & Kotan GPT") // l10n-ignore: credit
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
     }
 }

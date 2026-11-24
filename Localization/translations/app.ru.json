@@ -294,6 +294,9 @@
   "Conflict detected" : {
     "ru" : "Обнаружен конфликт"
   },
+  "Continue" : {
+    "ru" : "Продолжить"
+  },
   "Copied to clipboard" : {
     "ru" : "Скопировано в буфер обмена"
   },
@@ -889,6 +892,9 @@
   "Recording" : {
     "ru" : "Запись"
   },
+  "Recording Permissions" : {
+    "ru" : "Разрешения на запись"
+  },
   "Recording paused — click to stop (%@)" : {
     "ru" : "Запись приостановлена — нажмите, чтобы остановить (%@)"
   },
@@ -1002,6 +1008,9 @@
   },
   "Scan QR Code" : {
     "ru" : "Сканировать QR-код"
+  },
+  "Screen & System Audio Recording" : {
+    "ru" : "Запись экрана и системного звука"
   },
   "Screen Recording" : {
     "ru" : "Запись экрана"

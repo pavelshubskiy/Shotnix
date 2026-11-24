@@ -353,6 +353,9 @@
   "Conflict detected" : {
     "ja" : "競合あり"
   },
+  "Continue" : {
+    "ja" : "続ける"
+  },
   "Copied to clipboard" : {
     "ja" : "クリップボードにコピーしました"
   },
@@ -983,6 +986,9 @@
   "Recording" : {
     "ja" : "収録"
   },
+  "Recording Permissions" : {
+    "ja" : "録画のアクセス権"
+  },
   "Recording paused — click to stop (%@)" : {
     "ja" : "収録を一時停止中。クリックすると停止します（%@）"
   },
@@ -1111,6 +1117,9 @@
   },
   "Scan QR Code" : {
     "ja" : "QRコードをスキャン"
+  },
+  "Screen & System Audio Recording" : {
+    "ja" : "画面とシステムオーディオの収録"
   },
   "Screen Recording" : {
     "ja" : "画面収録"

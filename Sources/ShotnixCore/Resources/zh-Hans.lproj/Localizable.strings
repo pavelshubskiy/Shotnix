@@ -704,6 +704,8 @@
 	<string>电脑声音，说话时在 %lld 处降低</string>
 	<key>Conflict detected</key>
 	<string>检测到冲突</string>
+	<key>Continue</key>
+	<string>继续</string>
 	<key>Copied</key>
 	<string>已拷贝</string>
 	<key>Copied to clipboard</key>
@@ -2026,6 +2028,8 @@
 	<string>录制于 %@。在时间线上拖移它的圆点即可调整时间；波纹和自动缩放会随之更新。</string>
 	<key>Recording</key>
 	<string>录制</string>
+	<key>Recording Permissions</key>
+	<string>录制权限</string>
 	<key>Recording already in progress</key>
 	<string>已在录制中</string>
 	<key>Recording canceled</key>
@@ -2540,6 +2544,8 @@
 	<string>正在存储…</string>
 	<key>Scan QR Code</key>
 	<string>扫描二维码</string>
+	<key>Screen &amp; System Audio Recording</key>
+	<string>屏幕与系统音频录制</string>
 	<key>Screen Recording</key>
 	<string>屏幕录制</string>
 	<key>Screen Recording Permission Required</key>

@@ -294,6 +294,9 @@
   "Conflict detected" : {
     "uk" : "Виявлено конфлікт"
   },
+  "Continue" : {
+    "uk" : "Продовжити"
+  },
   "Copied to clipboard" : {
     "uk" : "Скопійовано в буфер обміну"
   },
@@ -889,6 +892,9 @@
   "Recording" : {
     "uk" : "Запис"
   },
+  "Recording Permissions" : {
+    "uk" : "Дозволи на запис"
+  },
   "Recording paused — click to stop (%@)" : {
     "uk" : "Запис призупинено — клацніть, щоб зупинити (%@)"
   },
@@ -1002,6 +1008,9 @@
   },
   "Scan QR Code" : {
     "uk" : "Сканувати QR-код"
+  },
+  "Screen & System Audio Recording" : {
+    "uk" : "Запис екрана й системного звуку"
   },
   "Screen Recording" : {
     "uk" : "Запис екрана"

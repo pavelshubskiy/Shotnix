@@ -636,6 +636,8 @@
 	<string>Son de l’ordinateur — faites glisser une atténuation pour la modifier, ou cliquez pour ses réglages dans Audio</string>
 	<key>Conflict detected</key>
 	<string>Conflit détecté</string>
+	<key>Continue</key>
+	<string>Continuer</string>
 	<key>Copied</key>
 	<string>Copié</string>
 	<key>Copied to clipboard</key>
@@ -1926,6 +1928,8 @@
 	<string>Enregistré à %@. Faites glisser son point dans la timeline pour le recaler ; les ondes et le zoom auto suivent.</string>
 	<key>Recording</key>
 	<string>Enregistrement</string>
+	<key>Recording Permissions</key>
+	<string>Autorisations d’enregistrement</string>
 	<key>Recording already in progress</key>
 	<string>Un enregistrement est déjà en cours</string>
 	<key>Recording canceled</key>
@@ -2422,6 +2426,8 @@
 	<string>Finalisation…</string>
 	<key>Scan QR Code</key>
 	<string>Scanner un code QR</string>
+	<key>Screen &amp; System Audio Recording</key>
+	<string>Enregistrement de l’écran et de l’audio système</string>
 	<key>Screen Recording</key>
 	<string>Enregistrement de l’écran</string>
 	<key>Screen Recording Permission Required</key>

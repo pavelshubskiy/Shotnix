@@ -24,10 +24,10 @@ final class RecordingBarTests: XCTestCase {
         super.tearDown()
     }
 
-    private func makeBar(target: RecordingTargetKind = .area, onRecord: @escaping () -> Void = {}) throws -> RecordingControlsWindow {
+    private func makeBar(target: RecordingTargetKind = .area, isPermissionGranted: @escaping (RecordingPermission) -> Bool = { _ in true }, onPermissions: @escaping () -> Void = {}, onRecord: @escaping () -> Void = {}) throws -> RecordingControlsWindow {
         let screen = try XCTUnwrap(NSScreen.main)
-        let rect = CGRect(x: screen.frame.minX + 100, y: screen.frame.minY + 100, width: 800, height: 450)
-        let bar = RecordingControlsWindow(rect: rect, screen: screen, target: target, selectedWindow: nil, startHandler: { _, _, _ in onRecord() }, closeHandler: {})
+        let bar = RecordingControlsWindow(screen: screen, target: target, anchor: .zero, startHandler: onRecord,
+                                          isPermissionGranted: isPermissionGranted, permissionsHandler: onPermissions, closeHandler: {})
         bar.setFrameOrigin(RecordingUITestSupport.offscreen)
         bar.orderFrontRegardless()
         return bar
@@ -44,8 +44,8 @@ final class RecordingBarTests: XCTestCase {
         let bar = try makeBar()
         defer { bar.closeControls() }
         let all = try toggles(in: bar)
-        XCTAssertEqual(Set(all.compactMap { $0.accessibilityLabel() }), ["System audio", "Microphone", "Cursor", "Camera", "Show keyboard shortcuts"])
-        let systemAudio = try XCTUnwrap(all.first { $0.accessibilityLabel() == "System audio" })
+        XCTAssertEqual(Set(all.compactMap { $0.accessibilityLabel() }), ["Record system audio", "Record microphone", "Show cursor", "Record camera"])
+        let systemAudio = try XCTUnwrap(all.first { $0.accessibilityLabel() == "Record system audio" })
         XCTAssertEqual(systemAudio.accessibilityValue() as? NSNumber, 0)
 
         // Space with keyboard focus goes through performClick.
@@ -64,7 +64,7 @@ final class RecordingBarTests: XCTestCase {
         XCTAssertEqual(systemAudio.accessibilityValue() as? NSNumber, 1)
     }
 
-    func testReturnRecordsAndRecordingStoresNothing() throws {
+    func testReturnContinuesWithoutStoringDefaults() throws {
         var recorded = 0
         let bar = try makeBar { recorded += 1 }
         let before = defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("recording") }
@@ -79,15 +79,24 @@ final class RecordingBarTests: XCTestCase {
         XCTAssertNil(defaults.object(forKey: "recordingQuality"))
     }
 
-    func testSizesAreInPixelsWithAnEstimate() throws {
-        let screen = try XCTUnwrap(NSScreen.main)
-        let bar = try makeBar()
-        defer { bar.closeControls() }
-        let labels = RecordingUITestSupport.allSubviews(of: try XCTUnwrap(bar.contentView)).compactMap { ($0 as? NSTextField)?.stringValue }
-        let scale = screen.backingScaleFactor
-        let pixels = "\(Int(800 * scale)) × \(Int(450 * scale))"
-        XCTAssertTrue(labels.contains { $0 == "Area · \(pixels)" }, "\(labels)")
-        XCTAssertTrue(labels.contains { $0.hasPrefix("up to ") && $0.hasSuffix("MB/min") }, "\(labels)")
+    func testNewPanelKeepsRequestedSourceAndRoutesMissingPermission() throws {
+        var permissionVisits = 0
+        let blocked = try makeBar(isPermissionGranted: { $0 != .camera }, onPermissions: { permissionVisits += 1 })
+        let camera = try XCTUnwrap(toggles(in: blocked).first { $0.accessibilityLabel() == "Record camera" })
+        camera.performClick(nil)
+        XCTAssertEqual(permissionVisits, 1)
+        XCTAssertTrue(Settings.recordingCamera)
+        XCTAssertFalse(blocked.isVisible)
+
+        let next = try makeBar(isPermissionGranted: { $0 != .camera }, onPermissions: { permissionVisits += 1 }) {
+            XCTFail("A remembered camera without access must go to permissions")
+        }
+        defer { next.closeControls() }
+        let remembered = try XCTUnwrap(toggles(in: next).first { $0.accessibilityLabel() == "Record camera" })
+        XCTAssertEqual(remembered.accessibilityValue() as? NSNumber, 1)
+        let proceed = try XCTUnwrap(RecordingUITestSupport.button(labelled: "Continue", in: next))
+        proceed.performClick(nil)
+        XCTAssertEqual(permissionVisits, 2)
     }
 
     func testOptionsAreReachable() throws {
@@ -95,7 +104,7 @@ final class RecordingBarTests: XCTestCase {
         defer { bar.closeControls() }
         let options = try XCTUnwrap(RecordingUITestSupport.button(labelled: "More recording options", in: bar))
         XCTAssertFalse(options.isHidden)
-        XCTAssertEqual(try XCTUnwrap(RecordingUITestSupport.button(labelled: "Record", in: bar)).keyEquivalent, "\r")
+        XCTAssertEqual(try XCTUnwrap(RecordingUITestSupport.button(labelled: "Continue", in: bar)).keyEquivalent, "\r")
     }
 
     func testOptionsMenuOffersWhatARecordingHides() throws {

@@ -636,6 +636,8 @@
 	<string>Звук компьютера — перетяните приглушение, чтобы изменить его, или нажмите, чтобы открыть настройки во вкладке «Аудио»</string>
 	<key>Conflict detected</key>
 	<string>Обнаружен конфликт</string>
+	<key>Continue</key>
+	<string>Продолжить</string>
 	<key>Copied</key>
 	<string>Скопировано</string>
 	<key>Copied to clipboard</key>
@@ -1926,6 +1928,8 @@
 	<string>Записано в %@. Перетяните его точку на шкале времени, чтобы изменить время; волны и автомасштаб последуют за ней.</string>
 	<key>Recording</key>
 	<string>Запись</string>
+	<key>Recording Permissions</key>
+	<string>Разрешения на запись</string>
 	<key>Recording already in progress</key>
 	<string>Запись уже идет</string>
 	<key>Recording canceled</key>
@@ -2422,6 +2426,8 @@
 	<string>Сохранение…</string>
 	<key>Scan QR Code</key>
 	<string>Сканировать QR-код</string>
+	<key>Screen &amp; System Audio Recording</key>
+	<string>Запись экрана и системного звука</string>
 	<key>Screen Recording</key>
 	<string>Запись экрана</string>
 	<key>Screen Recording Permission Required</key>

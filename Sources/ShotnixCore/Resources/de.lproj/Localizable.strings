@@ -642,6 +642,8 @@
 	<string>Systemton – Absenkung ziehen, um sie zu ändern, oder klicken für die Einstellungen unter „Audio“</string>
 	<key>Conflict detected</key>
 	<string>Konflikt erkannt</string>
+	<key>Continue</key>
+	<string>Weiter</string>
 	<key>Copied</key>
 	<string>Kopiert</string>
 	<key>Copied to clipboard</key>
@@ -1932,6 +1934,8 @@
 	<string>Aufgezeichnet bei %@. Ziehe seinen Punkt in der Zeitleiste, um den Zeitpunkt zu ändern; Wellen und Auto-Zoom folgen.</string>
 	<key>Recording</key>
 	<string>Aufzeichnung</string>
+	<key>Recording Permissions</key>
+	<string>Aufnahmeberechtigungen</string>
 	<key>Recording already in progress</key>
 	<string>Es läuft bereits eine Aufzeichnung</string>
 	<key>Recording canceled</key>
@@ -2428,6 +2432,8 @@
 	<string>Wird gesichert …</string>
 	<key>Scan QR Code</key>
 	<string>QR-Code scannen</string>
+	<key>Screen &amp; System Audio Recording</key>
+	<string>Bildschirm- &amp; Systemaudioaufnahme</string>
 	<key>Screen Recording</key>
 	<string>Bildschirmaufnahme</string>
 	<key>Screen Recording Permission Required</key>

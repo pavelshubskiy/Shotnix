@@ -704,6 +704,8 @@
 	<string>システムオーディオ、話している間%lld箇所で音量を下げます</string>
 	<key>Conflict detected</key>
 	<string>競合あり</string>
+	<key>Continue</key>
+	<string>続ける</string>
 	<key>Copied</key>
 	<string>コピーしました</string>
 	<key>Copied to clipboard</key>
@@ -2026,6 +2028,8 @@
 	<string>%@に記録されました。タイムライン上の点をドラッグするとタイミングを変更でき、波紋と自動ズームも合わせて移動します。</string>
 	<key>Recording</key>
 	<string>収録</string>
+	<key>Recording Permissions</key>
+	<string>録画のアクセス権</string>
 	<key>Recording already in progress</key>
 	<string>すでに収録中です</string>
 	<key>Recording canceled</key>
@@ -2540,6 +2544,8 @@
 	<string>保存中…</string>
 	<key>Scan QR Code</key>
 	<string>QRコードをスキャン</string>
+	<key>Screen &amp; System Audio Recording</key>
+	<string>画面とシステムオーディオの収録</string>
 	<key>Screen Recording</key>
 	<string>画面収録</string>
 	<key>Screen Recording Permission Required</key>

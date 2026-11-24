@@ -99,14 +99,16 @@ for lproj in "$SCRIPT_DIR"/Sources/ShotnixCore/Resources/*.lproj; do
     [ -d "$lproj" ] && ditto "$lproj" "$APP_BUNDLE/Contents/Resources/$(basename "$lproj")"
 done
 
-# Copy SPM-generated resource bundles (capture sound, KeyboardShortcuts localizations, etc.)
+# SwiftPM's debug and release shortcuts can be symlinks. Search the real
+# directory so the resources are copied into the signed bundle either way.
+RESOURCE_BUILD_DIR="$(cd "$BUILD_DIR" && pwd -P)"
 while IFS= read -r bundle; do
     bundle_name="$(basename "$bundle")"
     if [ "$bundle_name" = "${APP_NAME}_${APP_NAME}.bundle" ]; then
         continue
     fi
     ditto "$bundle" "$APP_BUNDLE/Contents/Resources/$bundle_name"
-done < <(find "$BUILD_DIR" -maxdepth 1 -type d -name "*.bundle" -print)
+done < <(find "$RESOURCE_BUILD_DIR" -maxdepth 1 -type d -name "*.bundle" -print)
 
 SPARKLE_FRAMEWORK="$BUILD_DIR/Sparkle.framework"
 if [ ! -d "$SPARKLE_FRAMEWORK" ]; then

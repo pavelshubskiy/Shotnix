@@ -638,6 +638,8 @@
 	<string>Звук комп’ютера — перетягніть приглушення, щоб змінити його, або клацніть, щоб відкрити налаштування у вкладці «Аудіо»</string>
 	<key>Conflict detected</key>
 	<string>Виявлено конфлікт</string>
+	<key>Continue</key>
+	<string>Продовжити</string>
 	<key>Copied</key>
 	<string>Скопійовано</string>
 	<key>Copied to clipboard</key>
@@ -1928,6 +1930,8 @@
 	<string>Записано на %@. Перетягніть його крапку на шкалі часу, щоб змінити час; хвилі й автонаближення підлаштуються.</string>
 	<key>Recording</key>
 	<string>Запис</string>
+	<key>Recording Permissions</key>
+	<string>Дозволи на запис</string>
 	<key>Recording already in progress</key>
 	<string>Запис уже триває</string>
 	<key>Recording canceled</key>
@@ -2424,6 +2428,8 @@
 	<string>Збереження…</string>
 	<key>Scan QR Code</key>
 	<string>Сканувати QR-код</string>
+	<key>Screen &amp; System Audio Recording</key>
+	<string>Запис екрана й системного звуку</string>
 	<key>Screen Recording</key>
 	<string>Запис екрана</string>
 	<key>Screen Recording Permission Required</key>

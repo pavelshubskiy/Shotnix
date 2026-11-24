@@ -142,6 +142,8 @@
 	<string>Genauigkeit</string>
 	<key>Accurate</key>
 	<string>Genau</string>
+	<key>Actual Size</key>
+	<string>Originalgröße</string>
 	<key>Add Arrow</key>
 	<string>Pfeil hinzufügen</string>
 	<key>Add Blur</key>
@@ -1104,6 +1106,8 @@
 	<string>Abschließen und beenden</string>
 	<key>Finish or cancel the current recording setup</key>
 	<string>Schließe die Vorbereitung der aktuellen Aufzeichnung ab oder brich sie ab</string>
+	<key>Fit to Window</key>
+	<string>An Fenster anpassen</string>
 	<key>Fix</key>
 	<string>Beheben</string>
 	<key>Flamingo</key>
@@ -2468,6 +2472,8 @@
 	<string>Alles auswählen</string>
 	<key>Select Screenshot Text</key>
 	<string>Text im Screenshot auswählen</string>
+	<key>Select Text</key>
+	<string>Text auswählen</string>
 	<key>Select a clip, or ⇧-drag across the timeline, to give just that part its own volume or mute it. A clip can also fade in and out.</key>
 	<string>Wähle einen Clip aus oder markiere mit ⇧-Ziehen einen Abschnitt in der Zeitleiste, um nur diesem Teil eine eigene Lautstärke zu geben oder ihn stummzuschalten. Ein Clip lässt sich außerdem ein- und ausblenden.</string>
 	<key>Select a part to cut, or to change its speed or sound</key>
@@ -3418,8 +3424,12 @@ Aktiviere sie unter „Systemeinstellungen“ → „Datenschutz &amp; Sicherhei
 	<string>Zoom</string>
 	<key>Zoom %@</key>
 	<string>Zoom %@</string>
+	<key>Zoom In</key>
+	<string>Vergrößern</string>
 	<key>Zoom Level</key>
 	<string>Zoomstufe</string>
+	<key>Zoom Out</key>
+	<string>Verkleinern</string>
 	<key>Zoom in at the pointer</key>
 	<string>Am Zeiger hineinzoomen</string>
 	<key>Zoom level</key>

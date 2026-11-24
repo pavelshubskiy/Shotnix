@@ -319,7 +319,7 @@ final class AnnotationWindowControllerTests: XCTestCase {
     func testToolbarControlsAreLabeledForVoiceOver() throws {
         let controller = makeController()
         let toolbar = controller.toolbar
-        XCTAssertEqual(toolbar.accessibilityRole(), .toolbar)
+        XCTAssertEqual(toolbar.toolRail.accessibilityRole(), .toolbar)
         for tool in AnnotationTool.allCases {
             guard tool.isAvailableInEditor else {
                 XCTAssertNil(toolbar.toolButton(for: tool))
@@ -351,14 +351,17 @@ final class AnnotationWindowControllerTests: XCTestCase {
         XCTAssertEqual(controller.window?.title, "Screenshot Editor", "VoiceOver names the window")
     }
 
-    func testToolbarFitsTheMinimumEditorWidth() throws {
-        guard let screen = NSScreen.main, screen.visibleFrame.width >= AnnotationToolbar.requiredWidth + 160 else {
-            throw XCTSkip("screen too narrow for the full toolbar")
-        }
+    func testEditorResizesWithoutOverlappingTheCanvas() throws {
         let controller = makeController()
         let window = try XCTUnwrap(controller.window)
-        XCTAssertGreaterThanOrEqual(window.frame.width, AnnotationToolbar.requiredWidth, "the toolbar isn't clipped")
-        XCTAssertEqual(controller.toolbar.frame.width, AnnotationToolbar.requiredWidth)
+        let viewport = try XCTUnwrap(controller.toolbar.viewport)
+        let initialWidth = viewport.frame.width
+        window.setContentSize(NSSize(width: window.minSize.width + 100, height: window.minSize.height))
+        controller.toolbar.layoutSubtreeIfNeeded()
+        XCTAssertEqual(controller.toolbar.bounds.width, window.contentView?.bounds.width)
+        XCTAssertEqual(viewport.frame.width, window.contentView!.bounds.width - AnnotationToolbar.railWidth
+                       - AnnotationToolbar.sheetInset - 2 * AnnotationToolbar.canvasInset, accuracy: 0.01)
+        XCTAssertNotEqual(viewport.frame.width, initialWidth)
     }
 
     // MARK: – Snapshots to look at

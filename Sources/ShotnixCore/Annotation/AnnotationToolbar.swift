@@ -11,61 +11,20 @@ final class AnnotationToolbar: NSView {
         [.text, .callout, .highlighter, .scanText],
         [.pixelate, .spotlight, .crop],
     ]
-    // Geometry. Everything sits on the dock's midline, and the insets are
-    // concentric: 8 pt from the dock's edge to each group, 3 pt from a group's
-    // edge to its tool buttons on every side, with corner radii stepping down
-    // to match (18 → 10 → 7).
-    static let height: CGFloat = 56
-    private static let edgeInset: CGFloat = 8
-    private static let groupHeight: CGFloat = height - 2 * edgeInset
-    private static let groupPadding: CGFloat = 3
-    private static let groupSpacing: CGFloat = 8
-    private static let buttonSize: CGFloat = 34
-    private static let toolPitch: CGFloat = 36
-    private static let controlHeight: CGFloat = 30
-    private static let dockRadius: CGFloat = 18
-    private static let groupRadius: CGFloat = dockRadius - edgeInset
-    static let buttonRadius: CGFloat = groupRadius - groupPadding
-    /// The color button sits as far from its group's edge as from its top.
-    private static let colorInset: CGFloat = (groupHeight - controlHeight) / 2
-    /// The contextual area after the color button: size, text, strength,
-    /// spotlight, or crop controls depending on the tool or selection.
-    private static let optionsWidth: CGFloat = 164
-    /// Controls in the options area end this far before its right side.
-    private static let optionsTrailing: CGFloat = 10
-    private static let actionFont = NSFont.systemFont(ofSize: 11)
-    private static let prominentActionFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
-    /// The least room between a button's title and its edges when a
-    /// translation needs more than the design width.
-    private static let titleInset: CGFloat = 8
-
-    /// Copy and Save share one width: 54 pt, or what the longer title needs.
-    private static var actionButtonWidth: CGFloat {
-        max(fittedWidth(L("Copy"), font: actionFont, atLeast: 54),
-            fittedWidth(L("Save"), font: prominentActionFont, atLeast: 54))
-    }
+    static let headerHeight: CGFloat = 52
+    static let footerHeight: CGFloat = 48
+    static let railWidth: CGFloat = 60
+    static let sheetInset: CGFloat = 8
+    static let canvasInset: CGFloat = 12
+    static let minimumWidth: CGFloat = 580
+    static let minimumHeight: CGFloat = 520
+    static let buttonRadius: CGFloat = 6
+    private static let optionsWidth: CGFloat = 216
+    private static let actionFont = NSFont.systemFont(ofSize: 12)
+    private static let prominentActionFont = NSFont.systemFont(ofSize: 12, weight: .semibold)
 
     private static func textWidth(_ text: String, font: NSFont) -> CGFloat {
         ceil((text as NSString).size(withAttributes: [.font: font]).width)
-    }
-
-    private static func fittedWidth(_ title: String, font: NSFont, atLeast minimum: CGFloat) -> CGFloat {
-        max(minimum, textWidth(title, font: font) + 2 * titleInset)
-    }
-
-    private static func toolGroupWidth(_ count: Int) -> CGFloat {
-        2 * groupPadding + CGFloat(count) * buttonSize + CGFloat(count - 1) * (toolPitch - buttonSize)
-    }
-
-    private static let optionsGroupWidth: CGFloat =
-        colorInset + controlHeight + 10 + (optionsWidth - optionsTrailing) + colorInset
-
-    /// Grows with the action buttons' titles in the user's language.
-    static var requiredWidth: CGFloat {
-        let tools = toolGroups.reduce(0) { $0 + toolGroupWidth($1.count) + groupSpacing }
-        // Copy, gap, Save
-        let actions = actionButtonWidth + 4 + actionButtonWidth
-        return edgeInset + tools + optionsGroupWidth + groupSpacing + actions + edgeInset
     }
 
     var onToolChanged: ((AnnotationTool) -> Void)?
@@ -81,15 +40,33 @@ final class AnnotationToolbar: NSView {
     var onCopy: (() -> Void)?
     var onApplyCrop: (() -> Void)?
     var onResetCrop: (() -> Void)?
+    var onUndo: (() -> Void)?
+    var onRedo: (() -> Void)?
+    var onZoomOut: (() -> Void)?
+    var onZoomIn: (() -> Void)?
+    var onActualSize: (() -> Void)?
+    var onFit: (() -> Void)?
 
-    private var toolButtons: [AnnotationTool: NSButton] = [:]
-    /// Group backgrounds, left to right, and the last control's right edge
-    /// (layout tests).
-    private(set) var groupFrames: [NSRect] = []
-    private(set) var trailingControlMaxX: CGFloat = 0
+    private var toolButtons: [AnnotationTool: EditorChromeButton] = [:]
+    let toolRail = NSView()
+    private let header = NSView()
+    private let footer = NSView()
+    private let sheet = NSView()
+    private var toolDividers: [NSView] = []
+    private(set) weak var viewport: NSView?
     private var selectedTool: AnnotationTool = .arrow
-    private var colorButton: NSButton?
-    private var copyButton: NSButton?
+    private let windowTitle = NSTextField(labelWithString: L("Screenshot Editor"))
+    private let toolTitle = NSTextField(labelWithString: "")
+    private let colorButton = EditorChromeButton(title: "")
+    private let colorSwatch = EditorColorSwatch()
+    private let undoButton = EditorChromeButton(symbol: "arrow.uturn.backward", label: L("Undo"))
+    private let redoButton = EditorChromeButton(symbol: "arrow.uturn.forward", label: L("Redo"))
+    private let copyButton = EditorChromeButton(title: L("Copy"))
+    private let saveButton = EditorChromeButton(title: L("Save"))
+    private let zoomOutButton = EditorChromeButton(symbol: "minus", label: L("Zoom Out"))
+    private let zoomInButton = EditorChromeButton(symbol: "plus", label: L("Zoom In"))
+    private let zoomPercentButton = EditorChromeButton(title: "100%")
+    private let fitButton = EditorChromeButton(symbol: "viewfinder", label: L("Fit to Window"))
     private var currentColor: NSColor = .systemRed
     private var colorPopover: NSPopover?
     private(set) var options = AnnotationToolOptions()
@@ -112,8 +89,8 @@ final class AnnotationToolbar: NSView {
     )
     private let shapeLabel = NSTextField(labelWithString: L("Shape"))
     private let spotlightShapeControl = NSSegmentedControl()
-    private let applyCropButton = PremiumToolbarActionButton(title: L("Apply"), target: nil, action: nil)
-    private let resetCropButton = PremiumToolbarActionButton(title: L("Reset"), target: nil, action: nil)
+    private let applyCropButton = EditorChromeButton(title: L("Apply"))
+    private let resetCropButton = EditorChromeButton(title: L("Reset"))
     private let hintLabel = NSTextField(labelWithString: "")
 
     static let fontSizes: [Int] = [10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 80, 96]
@@ -130,106 +107,178 @@ final class AnnotationToolbar: NSView {
 
     private func buildUI() {
         wantsLayer = true
-        layer?.cornerRadius = 18
-        layer?.cornerCurve = .continuous
-        layer?.shadowColor = NSColor.black.cgColor
-        layer?.shadowOpacity = 0.18
-        themed { toolbar in
-            toolbar.layer?.shadowOpacity = ShotnixTheme.isDark(toolbar.effectiveAppearance) ? 0.18 : 0.12
+        themed { $0.layer?.backgroundColor = AnnotationEditorColors.frame.cgColor }
+        toolRail.setAccessibilityRole(.toolbar)
+        toolRail.setAccessibilityLabel(L("Annotation tools"))
+        toolRail.setAccessibilityElement(true)
+
+        addSubview(header)
+        addSubview(toolRail)
+        addSubview(sheet)
+        addSubview(footer)
+        sheet.wantsLayer = true
+        sheet.layer?.cornerRadius = 16
+        sheet.layer?.cornerCurve = .continuous
+        sheet.layer?.borderWidth = 1
+        sheet.themed { sheet in
+            sheet.layer?.backgroundColor = AnnotationEditorColors.well.cgColor
+            sheet.layer?.borderColor = ShotnixColors.editorChromeBorder.cgColor
         }
-        layer?.shadowRadius = 22
-        layer?.shadowOffset = CGSize(width: 0, height: -10)
-        setAccessibilityRole(.toolbar)
-        setAccessibilityLabel(L("Annotation tools"))
+        windowTitle.font = .systemFont(ofSize: 13, weight: .semibold)
+        windowTitle.lineBreakMode = .byTruncatingTail
+        header.addSubview(windowTitle)
 
-        let blur = NSVisualEffectView(frame: bounds)
-        blur.material = .hudWindow
-        blur.blendingMode = .withinWindow
-        blur.state = .active
-        blur.autoresizingMask = [.width, .height]
-        blur.wantsLayer = true
-        blur.layer?.cornerRadius = 18
-        blur.layer?.cornerCurve = .continuous
-        blur.layer?.masksToBounds = true
-        addSubview(blur)
+        install(undoButton, in: header, action: #selector(undoTapped), help: L("Undo") + " (⌘Z)")
+        install(redoButton, in: header, action: #selector(redoTapped), help: L("Redo") + " (⇧⌘Z)")
+        install(copyButton, in: header, action: #selector(copyTapped), help: L("Copy (⌘C)"))
+        install(saveButton, in: header, action: #selector(saveTapped), help: L("Save (⌘S)"))
+        saveButton.font = Self.prominentActionFont
+        saveButton.emphasis = .primary
+        setHistoryAvailability(canUndo: false, canRedo: false)
 
-        let border = NSView(frame: bounds.insetBy(dx: 0.5, dy: 0.5))
-        border.autoresizingMask = [.width, .height]
-        border.wantsLayer = true
-        border.layer?.cornerRadius = 18
-        border.layer?.cornerCurve = .continuous
-        border.layer?.borderWidth = 1
-        border.themed { $0.layer?.borderColor = ShotnixColors.editorDockBorder.cgColor }
-        addSubview(border)
-
-        let midY = Self.height / 2
-        let controlY = midY - Self.controlHeight / 2
-        var x = Self.edgeInset
-
-        // Tool groups: shapes, markup, effects
-        for group in Self.toolGroups {
-            let width = Self.toolGroupWidth(group.count)
-            addToolbarGroupBackground(x: x, width: width)
-            var buttonX = x + Self.groupPadding
-            for tool in group {
-                let btn = makeToolButton(tool: tool)
-                btn.frame = NSRect(x: buttonX, y: midY - Self.buttonSize / 2, width: Self.buttonSize, height: Self.buttonSize)
-                addSubview(btn)
-                toolButtons[tool] = btn
-                buttonX += Self.toolPitch
+        for (index, group) in Self.toolGroups.enumerated() {
+            if index > 0 {
+                let divider = NSView()
+                divider.wantsLayer = true
+                divider.themed { $0.layer?.backgroundColor = ShotnixColors.editorChromeBorder.cgColor }
+                toolRail.addSubview(divider)
+                toolDividers.append(divider)
             }
-            x += width + Self.groupSpacing
+            for tool in group {
+                let button = makeToolButton(tool: tool)
+                toolRail.addSubview(button)
+                toolButtons[tool] = button
+            }
         }
 
-        addToolbarGroupBackground(x: x, width: Self.optionsGroupWidth)
-        x += Self.colorInset
-
-        // Color button (circular, shows current color)
-        let colorBtn = NSButton(title: "", target: self, action: #selector(showColorPopover(_:)))
-        colorBtn.frame = NSRect(x: x, y: controlY, width: Self.controlHeight, height: Self.controlHeight)
-        colorBtn.title = ""
-        colorBtn.alternateTitle = ""
-        colorBtn.attributedTitle = NSAttributedString(string: "")
-        colorBtn.imagePosition = .noImage
-        colorBtn.wantsLayer = true
-        colorBtn.layer?.cornerRadius = 15
-        colorBtn.layer?.backgroundColor = NSColor.systemRed.cgColor
-        colorBtn.layer?.borderWidth = 2
-        colorBtn.themed { $0.layer?.borderColor = ShotnixTheme.washColor(0.3).cgColor }
-        colorBtn.isBordered = false
-        colorBtn.bezelStyle = .regularSquare
-        colorBtn.toolTip = L("Color")
-        colorBtn.setAccessibilityLabel(L("Color"))
-        colorBtn.setAccessibilityValue(Self.colorName(currentColor))
-        addSubview(colorBtn)
-        colorButton = colorBtn
-        x += Self.controlHeight + 10
-
-        optionsContainer.frame = NSRect(x: x, y: midY - 25, width: Self.optionsWidth, height: 50)
-        addSubview(optionsContainer)
+        toolTitle.font = .systemFont(ofSize: 12, weight: .semibold)
+        toolTitle.lineBreakMode = .byTruncatingTail
+        footer.addSubview(toolTitle)
+        install(colorButton, in: footer, action: #selector(showColorPopover(_:)), help: L("Color"))
+        colorButton.setAccessibilityLabel(L("Color"))
+        colorSwatch.frame = NSRect(x: 7, y: 6, width: 18, height: 18)
+        colorSwatch.wantsLayer = true
+        colorSwatch.layer?.cornerRadius = 9
+        colorSwatch.layer?.borderWidth = 1
+        colorSwatch.themed { $0.layer?.borderColor = ShotnixColors.editorChromeBorder.cgColor }
+        colorButton.addSubview(colorSwatch)
+        setColorExternally(currentColor)
+        footer.addSubview(optionsContainer)
         buildOptionControls()
-        x += Self.optionsWidth - Self.optionsTrailing + Self.colorInset + Self.groupSpacing
 
-        // Action buttons
-        let actionWidth = Self.actionButtonWidth
-        let actions: [(title: String, action: Selector, help: String, font: NSFont)] = [
-            (L("Copy"), #selector(copyTapped), L("Copy (\u{2318}C)"), Self.actionFont),
-            (L("Save"), #selector(saveTapped), L("Save (\u{2318}S)"), Self.prominentActionFont),
-        ]
-        for item in actions {
-            let btn = PremiumToolbarActionButton(title: item.title, target: self, action: item.action)
-            btn.bezelStyle = .regularSquare
-            btn.font = item.font
-            btn.frame = NSRect(x: x, y: controlY, width: actionWidth, height: Self.controlHeight)
-            btn.toolTip = item.help
-            addSubview(btn)
-            if item.action == #selector(copyTapped) { copyButton = btn }
-            trailingControlMaxX = btn.frame.maxX
-            x += actionWidth + 4
-        }
+        install(zoomOutButton, in: footer, action: #selector(zoomOutTapped), help: L("Zoom Out") + " (⌘−)")
+        install(zoomPercentButton, in: footer, action: #selector(actualSizeTapped), help: L("Actual Size") + " (⌘0)")
+        zoomPercentButton.setAccessibilityLabel(L("Actual Size"))
+        zoomPercentButton.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        install(zoomInButton, in: footer, action: #selector(zoomInTapped), help: L("Zoom In") + " (⌘+)")
+        install(fitButton, in: footer, action: #selector(fitTapped), help: L("Fit to Window"))
 
         selectTool(.arrow)
         showOptions(options)
+    }
+
+    private func install(_ button: EditorChromeButton, in container: NSView, action: Selector, help: String) {
+        button.target = self
+        button.action = action
+        button.toolTip = help
+        button.setAccessibilityHelp(help)
+        container.addSubview(button)
+    }
+
+    func installViewport(_ view: NSView) {
+        viewport = view
+        sheet.addSubview(view)
+        needsLayout = true
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        needsLayout = true
+    }
+
+    override func layout() {
+        super.layout()
+        let width = bounds.width
+        let height = bounds.height
+        let bodyTop = height - Self.headerHeight
+        let sheetWidth = max(0, width - Self.railWidth - Self.sheetInset)
+        let sheetHeight = max(0, bodyTop - Self.footerHeight)
+        header.frame = NSRect(x: 0, y: bodyTop, width: width, height: Self.headerHeight)
+        toolRail.frame = NSRect(x: 0, y: 0, width: Self.railWidth, height: max(0, bodyTop))
+        footer.frame = NSRect(x: Self.railWidth, y: 0, width: sheetWidth, height: Self.footerHeight)
+        sheet.frame = NSRect(x: Self.railWidth, y: Self.footerHeight, width: sheetWidth, height: sheetHeight)
+        viewport?.frame = NSRect(x: Self.canvasInset, y: Self.canvasInset,
+                                 width: max(0, sheetWidth - 2 * Self.canvasInset),
+                                 height: max(0, sheetHeight - 2 * Self.canvasInset))
+        layoutHeader(width: width)
+        layoutRail(height: max(0, bodyTop))
+        layoutFooter(width: sheetWidth)
+    }
+
+    private func layoutHeader(width: CGFloat) {
+        var right = width - 12
+        for button in [saveButton, copyButton, redoButton, undoButton] {
+            let buttonWidth = button.image == nil
+                ? max(64, Self.textWidth(button.title, font: button.font ?? Self.actionFont) + 22)
+                : 34
+            right -= buttonWidth
+            button.frame = NSRect(x: right, y: 11, width: buttonWidth, height: 30)
+            right -= button === copyButton ? 12 : 4
+        }
+        windowTitle.frame = NSRect(x: 84, y: 17, width: max(0, right - 96), height: 18)
+    }
+
+    private func layoutRail(height: CGFloat) {
+        let count = CGFloat(toolButtons.count)
+        let gap: CGFloat = 8
+        let pitch = min(32, max(0, (height - 2 * Self.sheetInset - CGFloat(toolDividers.count) * gap) / count))
+        var top = height - Self.sheetInset
+        for (index, tools) in Self.toolGroups.enumerated() {
+            if index > 0 {
+                toolDividers[index - 1].frame = NSRect(x: 17, y: top - 4, width: 26, height: 1)
+                top -= gap
+            }
+            for tool in tools {
+                top -= pitch
+                toolButtons[tool]?.frame = NSRect(x: 10, y: top + 1, width: 40, height: max(0, pitch - 2))
+            }
+        }
+    }
+
+    private func layoutFooter(width: CGFloat) {
+        let zoomWidth: CGFloat = 152
+        var x = width - zoomWidth
+        let zoomItems: [(EditorChromeButton, CGFloat)] = [
+            (zoomOutButton, 32), (zoomPercentButton, 52), (zoomInButton, 32), (fitButton, 36),
+        ]
+        for (button, buttonWidth) in zoomItems {
+            button.frame = NSRect(x: x, y: 9, width: buttonWidth, height: 30)
+            x += buttonWidth
+        }
+
+        let colorVisible = !colorButton.isHidden
+        let titleSpace = width - zoomWidth - Self.optionsWidth - (colorVisible ? 64 : 24)
+        let titleWidth = min(160, max(64, titleSpace), max(64, ceil(toolTitle.intrinsicContentSize.width) + 4))
+        toolTitle.frame = NSRect(x: 12, y: 15, width: titleWidth, height: 18)
+        x = toolTitle.frame.maxX + 8
+        colorButton.frame = NSRect(x: x, y: 9, width: 32, height: 30)
+        if colorVisible { x += 40 }
+        optionsContainer.frame = NSRect(x: x, y: -1, width: Self.optionsWidth, height: 50)
+    }
+
+    func setHistoryAvailability(canUndo: Bool, canRedo: Bool) {
+        undoButton.isEnabled = canUndo
+        redoButton.isEnabled = canRedo
+    }
+
+    func setZoom(_ magnification: CGFloat, canZoomOut: Bool, canZoomIn: Bool) {
+        let percent = Double(magnification).formatted(.percent.precision(.fractionLength(0)).locale(L10n.locale))
+        if zoomPercentButton.accessibilityValue() as? String != percent {
+            zoomPercentButton.setCaption(percent)
+            zoomPercentButton.setAccessibilityValue(percent)
+        }
+        if zoomOutButton.isEnabled != canZoomOut { zoomOutButton.isEnabled = canZoomOut }
+        if zoomInButton.isEnabled != canZoomIn { zoomInButton.isEnabled = canZoomIn }
     }
 
     private func buildOptionControls() {
@@ -285,6 +334,7 @@ final class AnnotationToolbar: NSView {
         applyCropButton.target = self
         applyCropButton.action = #selector(applyCropTapped)
         applyCropButton.font = Self.prominentActionFont
+        applyCropButton.emphasis = .bordered
         applyCropButton.toolTip = L("Apply the crop (Return)")
         applyCropButton.setAccessibilityLabel(L("Apply crop"))
         optionsContainer.addSubview(applyCropButton)
@@ -312,10 +362,7 @@ final class AnnotationToolbar: NSView {
     func showOptions(_ newOptions: AnnotationToolOptions) {
         options = newOptions
         let visible: [NSView]
-        // Controls end 10 pt before the group's edge, matching the color button's inset.
-        // A label keeps its design width unless its translation needs more;
-        // the control beside it then gives up that room.
-        let end = Self.optionsWidth - Self.optionsTrailing
+        let end = Self.optionsWidth
         switch newOptions.context {
         case .stroke:
             let label = Self.labelWidth(sizeLabel, atLeast: 30)
@@ -325,8 +372,8 @@ final class AnnotationToolbar: NSView {
         case .rectangle:
             let label = Self.labelWidth(sizeLabel, atLeast: 30)
             sizeLabel.frame = NSRect(x: 0, y: 17, width: label, height: 16)
-            lineWidthSlider.frame = NSRect(x: label + 2, y: 11, width: 116 - label - 2, height: 28)
-            roundedCornersButton.frame = NSRect(x: 124, y: 10, width: 30, height: 30)
+            lineWidthSlider.frame = NSRect(x: label + 2, y: 11, width: end - 38 - label - 2, height: 28)
+            roundedCornersButton.frame = NSRect(x: end - 30, y: 10, width: 30, height: 30)
             visible = [sizeLabel, lineWidthSlider, roundedCornersButton]
         case .text:
             fontSizePopUp.frame = NSRect(x: 0, y: 11, width: 84, height: 28)
@@ -344,19 +391,25 @@ final class AnnotationToolbar: NSView {
             spotlightShapeControl.frame = NSRect(x: label + 4, y: 13, width: 84, height: 24)
             visible = [shapeLabel, spotlightShapeControl]
         case .crop:
-            let (apply, reset) = Self.cropButtonWidths(apply: applyCropButton.title, reset: resetCropButton.title)
+            let apply = max(70, Self.textWidth(applyCropButton.title, font: Self.prominentActionFont) + 16)
+            let reset = max(64, Self.textWidth(resetCropButton.title, font: Self.actionFont) + 16)
             applyCropButton.frame = NSRect(x: 0, y: 10, width: apply, height: 30)
-            resetCropButton.frame = NSRect(x: end - reset, y: 10, width: reset, height: 30)
+            resetCropButton.frame = NSRect(x: apply + 6, y: 10, width: reset, height: 30)
             visible = [applyCropButton, resetCropButton]
         case .none:
             let hint = screenshotTextLoading ? L("Recognizing text…") : L("Select text, then press ⌘C")
             showHint(selectedTool == .scanText ? hint : L("Click an annotation to edit it"), width: end)
             visible = [hintLabel]
         }
-        colorButton?.isHidden = selectedTool == .scanText
+        switch newOptions.context {
+        case .stroke, .rectangle, .text: colorButton.isHidden = false
+        case .none: colorButton.isHidden = selectedTool == .scanText
+        case .redaction, .spotlight, .crop: colorButton.isHidden = true
+        }
+        needsLayout = true
         let copyHelp = selectedTool == .scanText ? L("Copy recognized text (OCR)") : L("Copy (\u{2318}C)")
-        copyButton?.toolTip = copyHelp
-        copyButton?.setAccessibilityHelp(copyHelp)
+        copyButton.toolTip = copyHelp
+        copyButton.setAccessibilityHelp(copyHelp)
         for control in optionControls {
             control.isHidden = !visible.contains(where: { $0 === control })
         }
@@ -370,8 +423,6 @@ final class AnnotationToolbar: NSView {
         spotlightShapeControl.selectedSegment = newOptions.spotlightEllipse ? 1 : 0
         applyCropButton.isEnabled = newOptions.canApplyCrop
         resetCropButton.isEnabled = newOptions.canResetCrop
-        applyCropButton.alphaValue = newOptions.canApplyCrop ? 1 : 0.45
-        resetCropButton.alphaValue = newOptions.canResetCrop ? 1 : 0.45
     }
 
     func setScreenshotTextLoading(_ loading: Bool) {
@@ -383,18 +434,6 @@ final class AnnotationToolbar: NSView {
     /// small gap before the control beside it.
     private static func labelWidth(_ label: NSTextField, atLeast minimum: CGFloat) -> CGFloat {
         max(minimum, ceil(label.intrinsicContentSize.width) + 4)
-    }
-
-    /// Apply and Reset share the crop row: 74 pt each, or, when a
-    /// translation needs more, each its title plus an even share of the rest.
-    private static func cropButtonWidths(apply: String, reset: String) -> (apply: CGFloat, reset: CGFloat) {
-        let applyText = textWidth(apply, font: prominentActionFont)
-        let resetText = textWidth(reset, font: actionFont)
-        let inset: CGFloat = 6
-        if applyText + 2 * inset <= 74, resetText + 2 * inset <= 74 { return (74, 74) }
-        let row = optionsWidth - optionsTrailing - 6
-        let spare = max(0, row - applyText - resetText) / 2
-        return (applyText + spare, resetText + spare)
     }
 
     /// One line where the hint fits, as it always does in English; a longer
@@ -431,28 +470,8 @@ final class AnnotationToolbar: NSView {
         fontSizePopUp.selectItem(withTag: rounded)
     }
 
-    private func addToolbarGroupBackground(x: CGFloat, width: CGFloat) {
-        let group = NSView(frame: NSRect(x: x, y: Self.edgeInset, width: width, height: Self.groupHeight))
-        groupFrames.append(group.frame)
-        group.wantsLayer = true
-        group.layer?.cornerRadius = Self.groupRadius
-        group.layer?.cornerCurve = .continuous
-        group.layer?.borderWidth = 1
-        group.themed { group in
-            group.layer?.backgroundColor = ShotnixTheme.inkColor(0.055).cgColor
-            group.layer?.borderColor = ShotnixTheme.inkColor(0.055).cgColor
-        }
-        addSubview(group)
-    }
-
-    private func makeToolButton(tool: AnnotationTool) -> NSButton {
-        let btn = AnnotationToolButton(frame: .zero)
-        btn.wantsLayer = true
-        btn.layer?.cornerRadius = Self.buttonRadius
-        btn.layer?.cornerCurve = .continuous
-        btn.image = NSImage(systemSymbolName: tool.icon, accessibilityDescription: tool.name)
-        btn.bezelStyle = .regularSquare
-        btn.isBordered = false
+    private func makeToolButton(tool: AnnotationTool) -> EditorChromeButton {
+        let btn = EditorChromeButton(symbol: tool.icon, label: tool.name)
         btn.toolTip = tool.tooltip
         btn.target = self
         btn.action = #selector(toolTapped(_:))
@@ -472,25 +491,15 @@ final class AnnotationToolbar: NSView {
     }
 
     private func selectTool(_ tool: AnnotationTool) {
-        if let oldBtn = toolButtons[selectedTool] as? AnnotationToolButton {
-            oldBtn.isSelectedTool = false
-        }
-        toolButtons[selectedTool]?.layer?.backgroundColor = nil
+        toolButtons[selectedTool]?.emphasis = .plain
         toolButtons[selectedTool]?.setAccessibilityValue(NSNumber(value: 0))
         selectedTool = tool
-        toolButtons[tool]?.wantsLayer = true
-        toolButtons[tool]?.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.28).cgColor
+        toolButtons[tool]?.emphasis = .selected
         toolButtons[tool]?.setAccessibilityValue(NSNumber(value: 1))
-        if let newBtn = toolButtons[tool] as? AnnotationToolButton {
-            newBtn.isSelectedTool = true
-        }
+        toolTitle.stringValue = tool == .scanText ? L("Select Text") : tool.name
+        toolTitle.toolTip = tool.tooltip
+        needsLayout = true
     }
-
-    func frame(of tool: AnnotationTool) -> NSRect? {
-        toolButtons[tool]?.frame
-    }
-
-    var colorButtonFrame: NSRect? { colorButton?.frame }
 
     func selectToolExternally(_ tool: AnnotationTool) {
         selectTool(tool)
@@ -498,8 +507,8 @@ final class AnnotationToolbar: NSView {
 
     func setColorExternally(_ color: NSColor) {
         currentColor = color
-        colorButton?.layer?.backgroundColor = color.cgColor
-        colorButton?.setAccessibilityValue(Self.colorName(color))
+        colorSwatch.layer?.backgroundColor = color.cgColor(in: self)
+        colorButton.setAccessibilityValue(Self.colorName(color))
     }
 
     /// Accessibility helpers for tests: the control a VoiceOver user reaches.
@@ -534,7 +543,7 @@ final class AnnotationToolbar: NSView {
         let popover = NSPopover()
         popover.contentViewController = controller
         popover.behavior = .transient
-        popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+        popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .maxY)
         colorPopover = popover
     }
 
@@ -637,6 +646,12 @@ final class AnnotationToolbar: NSView {
 
     @objc private func copyTapped()       { onCopy?() }
     @objc private func saveTapped()       { onSave?() }
+    @objc private func undoTapped()       { onUndo?() }
+    @objc private func redoTapped()       { onRedo?() }
+    @objc private func zoomOutTapped()    { onZoomOut?() }
+    @objc private func zoomInTapped()     { onZoomIn?() }
+    @objc private func actualSizeTapped() { onActualSize?() }
+    @objc private func fitTapped()        { onFit?() }
 }
 
 /// Icon toggle in the options area, tinted like a selected tool while on.
@@ -1069,66 +1084,6 @@ final class BackgroundPopoverController: NSViewController {
 }
 
 
-// MARK: – Annotation tool button with hover + press feedback
-
-@MainActor
-private final class AnnotationToolButton: NSButton {
-
-    var isSelectedTool = false
-    private var trackingArea: NSTrackingArea?
-    private var isHovered = false
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let old = trackingArea { removeTrackingArea(old) }
-        let area = NSTrackingArea(rect: bounds, options: [.activeAlways, .mouseEnteredAndExited], owner: self)
-        addTrackingArea(area)
-        trackingArea = area
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        isHovered = true
-        guard !isSelectedTool else { return }
-        wantsLayer = true
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.15
-            ctx.allowsImplicitAnimation = true
-            self.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.08).cgColor(in: self)
-        }
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        isHovered = false
-        guard !isSelectedTool else { return }
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.2
-            ctx.allowsImplicitAnimation = true
-            self.layer?.backgroundColor = nil
-        }
-    }
-
-    /// Presses in about its center. NSButton tracks the click inside
-    /// `super.mouseDown` and never gets `mouseUp`, so the spring back runs
-    /// when that returns.
-    override func mouseDown(with event: NSEvent) {
-        wantsLayer = true
-        guard let layer else { return super.mouseDown(with: event) }
-        let pressed = layer.scaledAboutCenter(0.92)
-        layer.transform = pressed
-        super.mouseDown(with: event)
-        let spring = CASpringAnimation(keyPath: "transform")
-        spring.fromValue = NSValue(caTransform3D: pressed)
-        spring.toValue = NSValue(caTransform3D: CATransform3DIdentity)
-        spring.mass = 1.0
-        spring.stiffness = 300
-        spring.damping = 15
-        spring.initialVelocity = 0
-        spring.duration = spring.settlingDuration
-        layer.add(spring, forKey: "bounceBack")
-        layer.transform = CATransform3DIdentity
-    }
-}
-
 extension CALayer {
     /// A scale about the layer's center, whatever its anchor point. Layers of
     /// layer-backed views anchor at a corner, so a plain scale would pull a
@@ -1142,71 +1097,129 @@ extension CALayer {
     }
 }
 
+private final class EditorColorSwatch: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+enum AnnotationEditorColors {
+    static let frame = NSColor(name: "annotationFrame") { appearance in
+        ShotnixTheme.isDark(appearance)
+            ? NSColor(white: 0.12, alpha: 1)
+            : NSColor(srgbRed: 0.953, green: 0.96, blue: 0.97, alpha: 1)
+    }
+
+    static let well = NSColor(name: "annotationWell") { appearance in
+        ShotnixTheme.isDark(appearance)
+            ? NSColor(white: 0.16, alpha: 1)
+            : NSColor(srgbRed: 0.927, green: 0.936, blue: 0.947, alpha: 1)
+    }
+}
+
 @MainActor
-private final class PremiumToolbarActionButton: NSButton {
-    private var trackingArea: NSTrackingArea?
-    private var isHovered = false
+private final class EditorChromeButton: NSButton {
+    enum Emphasis { case plain, selected, bordered, primary }
+
+    var emphasis: Emphasis = .plain {
+        didSet { updateChrome() }
+    }
+
+    private var pointerTracking: NSTrackingArea?
+    private var hovered = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        configureLayer()
+        isBordered = false
+        font = .systemFont(ofSize: 12)
+        wantsLayer = true
+        layer?.cornerRadius = AnnotationToolbar.buttonRadius
+        themed { $0.updateChrome() }
     }
 
-    convenience init(title: String, target: AnyObject?, action: Selector?) {
+    convenience init(title: String) {
         self.init(frame: .zero)
+        setCaption(title)
+    }
+
+    func setCaption(_ title: String) {
         self.title = title
-        self.target = target
-        self.action = action
+        updateChrome()
+    }
+
+    convenience init(symbol: String, label: String) {
+        self.init(frame: .zero)
+        image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?
+            .withSymbolConfiguration(.init(pointSize: 15, weight: .medium))
+        imagePosition = .imageOnly
+        setAccessibilityLabel(label)
+        updateChrome()
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        if let trackingArea { removeTrackingArea(trackingArea) }
-        let area = NSTrackingArea(rect: bounds, options: [.activeAlways, .mouseEnteredAndExited], owner: self)
+        if let pointerTracking { removeTrackingArea(pointerTracking) }
+        let area = NSTrackingArea(rect: .zero, options: [.inVisibleRect, .activeInKeyWindow, .mouseEnteredAndExited], owner: self)
         addTrackingArea(area)
-        trackingArea = area
+        pointerTracking = area
     }
 
     override func mouseEntered(with event: NSEvent) {
-        isHovered = true
-        animateBackground(ShotnixColors.cornerButtonHover.cgColor(in: self))
+        hovered = true
+        updateChrome()
     }
 
     override func mouseExited(with event: NSEvent) {
-        isHovered = false
-        animateBackground(ShotnixColors.editorActionBackground.cgColor(in: self))
+        hovered = false
+        updateChrome()
     }
 
-    /// NSButton tracks the click inside `super.mouseDown` and never gets
-    /// `mouseUp`, so the release look is restored when that returns.
-    override func mouseDown(with event: NSEvent) {
-        animateBackground(ShotnixColors.cornerButtonPressed.cgColor(in: self))
-        if let layer { layer.transform = layer.scaledAboutCenter(0.97) }
-        super.mouseDown(with: event)
-        animateBackground((isHovered ? ShotnixColors.cornerButtonHover : ShotnixColors.editorActionBackground).cgColor(in: self))
-        layer?.transform = CATransform3DIdentity
+    override func highlight(_ flag: Bool) {
+        super.highlight(flag)
+        updateChrome()
     }
 
-    private func configureLayer() {
-        wantsLayer = true
-        isBordered = false
-        layer?.cornerRadius = 9
-        layer?.cornerCurve = .continuous
-        layer?.borderWidth = 1
-        themed { button in
-            button.layer?.backgroundColor = (button.isHovered ? ShotnixColors.cornerButtonHover : ShotnixColors.editorActionBackground).cgColor
-            button.layer?.borderColor = ShotnixColors.editorDockBorder.cgColor
+    override var isEnabled: Bool {
+        didSet { updateChrome() }
+    }
+
+    private func updateChrome() {
+        let pressed = isEnabled && isHighlighted
+        let hovered = isEnabled && self.hovered
+        let ink = NSColor.labelColor
+        let dark = ShotnixTheme.isDark(effectiveAppearance)
+        let controlInk = NSColor(white: dark ? 0.79 : 0.30, alpha: 1)
+        switch emphasis {
+        case .plain:
+            layer?.backgroundColor = ink.withAlphaComponent(pressed ? 0.17 : hovered ? 0.075 : 0).cgColor(in: self)
+        case .selected:
+            layer?.backgroundColor = ink.withAlphaComponent(pressed ? 0.24 : 0.14).cgColor(in: self)
+        case .bordered:
+            layer?.backgroundColor = ink.withAlphaComponent(pressed ? 0.16 : hovered ? 0.10 : 0.05).cgColor(in: self)
+        case .primary:
+            let white: CGFloat = dark ? (pressed ? 0.74 : hovered ? 0.85 : 0.92)
+                : (pressed ? 0.26 : hovered ? 0.22 : 0.14)
+            layer?.backgroundColor = NSColor(white: white, alpha: 1).cgColor
         }
+        if image != nil {
+            contentTintColor = emphasis == .selected ? .labelColor : controlInk
+        } else if !title.isEmpty {
+            let titleColor = emphasis == .primary ? (dark ? NSColor.black : .white) : controlInk
+            attributedTitle = NSAttributedString(string: title, attributes: [
+                .font: font ?? .systemFont(ofSize: 12),
+                .foregroundColor: isEnabled ? titleColor : titleColor.withAlphaComponent(0.45),
+            ])
+        }
+        layer?.borderWidth = emphasis == .bordered ? 1 : 0
+        layer?.borderColor = ShotnixColors.editorChromeBorder.cgColor(in: self)
+        needsDisplay = true
     }
 
-    private func animateBackground(_ color: CGColor) {
-        wantsLayer = true
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.16
-            ctx.allowsImplicitAnimation = true
-            self.layer?.backgroundColor = color
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        if emphasis == .selected {
+            NSColor.controlAccentColor.setFill()
+            NSBezierPath(roundedRect: NSRect(x: 3, y: bounds.midY - 7, width: 2, height: 14), xRadius: 1, yRadius: 1).fill()
         }
     }
 }

@@ -2,47 +2,28 @@ import AppKit
 import XCTest
 @testable import ShotnixCore
 
-/// The editor's toolbar reads as one aligned object: every group sits on
-/// the dock's midline with the same margin all around, a selected tool's
-/// fill has equal padding on every side, and presses scale about the center.
 @MainActor
 final class AnnotationToolbarLayoutTests: XCTestCase {
+    func testToolsRunVerticallyBesideTheCanvas() throws {
+        let toolbar = AnnotationToolbar(frame: NSRect(x: 0, y: 0, width: 580, height: 520))
+        let viewport = NSView()
+        toolbar.installViewport(viewport)
+        toolbar.layoutSubtreeIfNeeded()
 
-    func testEveryToolSitsInItsGroupWithEqualPaddingOnAllSides() throws {
-        let toolbar = AnnotationToolbar(frame: NSRect(x: 0, y: 0, width: AnnotationToolbar.requiredWidth, height: AnnotationToolbar.height))
-        XCTAssertEqual(toolbar.groupFrames.count, AnnotationToolbar.toolGroups.count + 1, "three tool groups and the color/options group")
-
-        for (index, group) in AnnotationToolbar.toolGroups.enumerated() {
-            let background = toolbar.groupFrames[index]
-            for tool in group {
-                let button = try XCTUnwrap(toolbar.frame(of: tool))
-                XCTAssertEqual(button.minY - background.minY, background.maxY - button.maxY, accuracy: 0.001, "\(tool): as much room below as above")
-                XCTAssertEqual(button.minY - background.minY, 3, accuracy: 0.001)
-            }
-            let first = try XCTUnwrap(toolbar.frame(of: group[0]))
-            let last = try XCTUnwrap(toolbar.frame(of: group[group.count - 1]))
-            XCTAssertEqual(first.minX - background.minX, 3, accuracy: 0.001, "left padding matches the top")
-            XCTAssertEqual(background.maxX - last.maxX, 3, accuracy: 0.001, "right padding matches the left")
+        let groups = try AnnotationToolbar.toolGroups.map { group in
+            try group.map { try XCTUnwrap(toolbar.toolButton(for: $0)).frame }
         }
-    }
-
-    func testTheRowIsCenteredInTheDockWithEvenGaps() throws {
-        let toolbar = AnnotationToolbar(frame: NSRect(x: 0, y: 0, width: AnnotationToolbar.requiredWidth, height: AnnotationToolbar.height))
-        let groups = toolbar.groupFrames
         for group in groups {
-            XCTAssertEqual(group.midY, AnnotationToolbar.height / 2, accuracy: 0.001, "on the dock's midline")
-            XCTAssertEqual(group.minY, 8, accuracy: 0.001)
+            XCTAssertTrue(group.allSatisfy { toolbar.toolRail.bounds.contains($0) })
+            for (above, below) in zip(group, group.dropFirst()) {
+                XCTAssertEqual(above.midX, below.midX)
+                XCTAssertEqual(above.minY - below.maxY, 2, accuracy: 0.01)
+            }
         }
-        XCTAssertEqual(groups[0].minX, 8, accuracy: 0.001, "as far from the dock's left edge as from its top")
-        for (left, right) in zip(groups, groups.dropFirst()) {
-            XCTAssertEqual(right.minX - left.maxX, 8, accuracy: 0.001, "the same gap between every pair of groups")
+        for (above, below) in zip(groups, groups.dropFirst()) {
+            XCTAssertEqual(try XCTUnwrap(above.last).minY - XCTUnwrap(below.first).maxY, 10, accuracy: 0.01)
         }
-        XCTAssertEqual(AnnotationToolbar.requiredWidth - toolbar.trailingControlMaxX, 8, accuracy: 0.001, "and from the right edge")
-
-        let color = try XCTUnwrap(toolbar.colorButtonFrame)
-        let optionsGroup = groups[groups.count - 1]
-        XCTAssertEqual(color.midY, optionsGroup.midY, accuracy: 0.001)
-        XCTAssertEqual(color.minX - optionsGroup.minX, color.minY - optionsGroup.minY, accuracy: 0.001, "the color button's side margin matches its top")
+        XCTAssertLessThanOrEqual(toolbar.toolRail.frame.maxX, toolbar.convert(viewport.bounds, from: viewport).minX)
     }
 
     func testPressesScaleAboutTheCenterWhateverTheAnchor() {

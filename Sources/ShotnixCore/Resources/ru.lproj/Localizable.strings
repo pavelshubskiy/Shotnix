@@ -136,6 +136,8 @@
 	<string>Режим</string>
 	<key>Accurate</key>
 	<string>Точный</string>
+	<key>Actual Size</key>
+	<string>Фактический размер</string>
 	<key>Add Arrow</key>
 	<string>Добавить стрелку</string>
 	<key>Add Blur</key>
@@ -1098,6 +1100,8 @@
 	<string>Дождаться и завершить</string>
 	<key>Finish or cancel the current recording setup</key>
 	<string>Завершите или отмените текущую подготовку к записи</string>
+	<key>Fit to Window</key>
+	<string>Вписать в окно</string>
 	<key>Fix</key>
 	<string>Исправить</string>
 	<key>Flamingo</key>
@@ -2462,6 +2466,8 @@
 	<string>Выбрать все</string>
 	<key>Select Screenshot Text</key>
 	<string>Выделить текст на снимке</string>
+	<key>Select Text</key>
+	<string>Выделить текст</string>
 	<key>Select a clip, or ⇧-drag across the timeline, to give just that part its own volume or mute it. A clip can also fade in and out.</key>
 	<string>Выберите клип или выделите фрагмент на шкале времени, перетянув с ⇧, чтобы задать только ему свою громкость или выключить его звук. Для клипа можно также настроить нарастание и затухание.</string>
 	<key>Select a part to cut, or to change its speed or sound</key>
@@ -3412,8 +3418,12 @@ Please enable it in System Settings → Privacy &amp; Security → Screen &amp; 
 	<string>Масштаб</string>
 	<key>Zoom %@</key>
 	<string>Увеличение %@</string>
+	<key>Zoom In</key>
+	<string>Увеличить</string>
 	<key>Zoom Level</key>
 	<string>Уровень увеличения</string>
+	<key>Zoom Out</key>
+	<string>Уменьшить</string>
 	<key>Zoom in at the pointer</key>
 	<string>Увеличить в точке указателя</string>
 	<key>Zoom level</key>

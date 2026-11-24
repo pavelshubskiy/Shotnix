@@ -74,6 +74,9 @@
   "Accurate" : {
     "ja" : "正確"
   },
+  "Actual Size" : {
+    "ja" : "実際のサイズ"
+  },
   "Advanced Tools" : {
     "ja" : "高度なツール"
   },
@@ -550,6 +553,9 @@
   },
   "Finish and Quit" : {
     "ja" : "完了してから終了"
+  },
+  "Fit to Window" : {
+    "ja" : "ウインドウに合わせる"
   },
   "Fix" : {
     "ja" : "修正"
@@ -1139,6 +1145,9 @@
   "Select Screenshot Text" : {
     "ja" : "スクリーンショットのテキストを選択"
   },
+  "Select Text" : {
+    "ja" : "テキストを選択"
+  },
   "Select text, then press ⌘C" : {
     "ja" : "テキストを選択して ⌘C"
   },
@@ -1447,6 +1456,12 @@
   },
   "Zoom" : {
     "ja" : "ズーム"
+  },
+  "Zoom In" : {
+    "ja" : "拡大"
+  },
+  "Zoom Out" : {
+    "ja" : "縮小"
   },
   "macOS closed Shotnix last time because it ran out of memory" : {
     "ja" : "前回、メモリが不足したためmacOSがShotnixを終了しました"

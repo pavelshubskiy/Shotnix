@@ -4,8 +4,6 @@ import AppKit
 @MainActor
 final class AnnotationWindowController: NSWindowController {
 
-    private static let trafficLightReservedWidth: CGFloat = 92
-    private static var minimumEditorWidth: CGFloat { trafficLightReservedWidth + AnnotationToolbar.requiredWidth + 20 }
     private static let initialScreenWidthFraction: CGFloat = 0.96
     private static let initialScreenHeightFraction: CGFloat = 0.92
     private static let initialScreenEdgeInset: CGFloat = 24
@@ -14,7 +12,7 @@ final class AnnotationWindowController: NSWindowController {
     let toolbar: AnnotationToolbar
     private let historyItem: HistoryItem?
     private let historyManager: HistoryManager?
-    private let scrollView: NSScrollView
+    private let scrollView: AnnotationEditorScrollView
     private var textOverlay: ScreenshotTextSelectionView { canvas.screenshotTextSelection }
     private var recognitionTask: Task<Void, Never>?
     private var recognizedRevision: Int?
@@ -129,41 +127,26 @@ final class AnnotationWindowController: NSWindowController {
         openControllers.append(controller)
         controller.prepareScreenshotText()
         ShotnixEditorActivation.sync()
-        NSApp.activate(ignoringOtherApps: true)
-        controller.showWindow(nil)
-        if let win = controller.window {
-            win.alphaValue = 0
-            controller.bringEditorToFront()
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.2
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                win.animator().alphaValue = 1
-            }
-        }
+        controller.bringEditorToFront()
     }
 
     init(image: NSImage, historyItem: HistoryItem?, historyManager: HistoryManager?) {
         self.historyItem = historyItem
         self.historyManager = historyManager
         self.canvas = AnnotationCanvas(frame: NSRect(origin: .zero, size: image.size))
-        self.toolbar = AnnotationToolbar()
-
         let canvasSize = image.size
-        let toolbarHeight: CGFloat = 76
-        let toolbarDockHeight = AnnotationToolbar.height
-        let stageInset: CGFloat = 18
 
         // Open as large as the visible display safely allows so the image starts with less scrolling.
         let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let minimumEditorHeight = 260 + toolbarHeight
         let screenSafeWidth = max(1, screenFrame.width - Self.initialScreenEdgeInset * 2)
         let screenSafeHeight = max(1, screenFrame.height - Self.initialScreenEdgeInset * 2)
         let maxWindowWidth = min(screenSafeWidth, screenFrame.width * Self.initialScreenWidthFraction)
         let maxWindowHeight = min(screenSafeHeight, screenFrame.height * Self.initialScreenHeightFraction)
-        let effectiveMinimumWidth = min(Self.minimumEditorWidth, maxWindowWidth)
-        let effectiveMinimumHeight = min(minimumEditorHeight, maxWindowHeight)
-        let desiredWindowWidth = canvasSize.width + stageInset * 2
-        let desiredWindowHeight = canvasSize.height + toolbarHeight + stageInset
+        let effectiveMinimumWidth = min(AnnotationToolbar.minimumWidth, maxWindowWidth)
+        let effectiveMinimumHeight = min(AnnotationToolbar.minimumHeight, maxWindowHeight)
+        let canvasPadding = 2 * AnnotationToolbar.canvasInset
+        let desiredWindowWidth = canvasSize.width + canvasPadding + AnnotationToolbar.railWidth + AnnotationToolbar.sheetInset
+        let desiredWindowHeight = canvasSize.height + canvasPadding + AnnotationToolbar.headerHeight + AnnotationToolbar.footerHeight
         let winW = max(min(desiredWindowWidth, maxWindowWidth), effectiveMinimumWidth)
         let winH = max(min(desiredWindowHeight, maxWindowHeight), effectiveMinimumHeight)
         let windowSize = NSSize(width: winW, height: winH)
@@ -184,13 +167,8 @@ final class AnnotationWindowController: NSWindowController {
         win.minSize = NSSize(width: effectiveMinimumWidth, height: effectiveMinimumHeight)
         win.center()
 
-        // Scroll view for canvas — clips content properly
-        scrollView = NSScrollView(frame: NSRect(
-            x: stageInset,
-            y: stageInset,
-            width: winW - stageInset * 2,
-            height: winH - toolbarHeight - stageInset
-        ))
+        scrollView = AnnotationEditorScrollView()
+        toolbar = AnnotationToolbar(frame: NSRect(origin: .zero, size: windowSize))
 
         super.init(window: win)
 
@@ -206,36 +184,12 @@ final class AnnotationWindowController: NSWindowController {
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
         scrollView.backgroundColor = .clear
-        scrollView.autoresizingMask = [.width, .height]
         scrollView.horizontalScrollElasticity = .none
         scrollView.verticalScrollElasticity = .none
-        // Zoom: pinch-to-zoom plus ⌘+/⌘-/⌘0 handled in AnnotationCanvas.keyDown
         scrollView.allowsMagnification = true
         scrollView.minMagnification = 0.1
         scrollView.maxMagnification = 8
-        scrollView.wantsLayer = true
-        scrollView.layer?.cornerRadius = 18
-        scrollView.layer?.cornerCurve = .continuous
-        scrollView.layer?.borderWidth = 1
-        scrollView.layer?.shadowColor = NSColor.black.cgColor
-        scrollView.themed { scrollView in
-            scrollView.layer?.borderColor = ShotnixColors.editorChromeBorder.cgColor
-            // The screenshot needs less shadow to stand off a light stage.
-            scrollView.layer?.shadowOpacity = ShotnixTheme.isDark(scrollView.effectiveAppearance) ? 0.24 : 0.14
-        }
-        scrollView.layer?.shadowRadius = 32
-        scrollView.layer?.shadowOffset = CGSize(width: 0, height: -18)
-
-        // Floating toolbar dock positioned at top of window
-        let toolbarWidth = min(AnnotationToolbar.requiredWidth, max(0, winW - Self.trafficLightReservedWidth - stageInset))
-        let toolbarX = max(Self.trafficLightReservedWidth, round((winW - toolbarWidth) / 2))
-        toolbar.frame = NSRect(
-            x: toolbarX,
-            y: winH - toolbarDockHeight - 10,
-            width: toolbarWidth,
-            height: toolbarDockHeight
-        )
-        toolbar.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
+        scrollView.onViewportChanged = { [weak self] in self?.updateZoomControls() }
 
         toolbar.onToolChanged              = { [weak self] tool in
             guard let self else { return }
@@ -257,6 +211,21 @@ final class AnnotationWindowController: NSWindowController {
         toolbar.onApplyCrop                = { [weak self] in self?.canvas.applyCrop() }
         toolbar.onResetCrop                = { [weak self] in self?.canvas.resetCrop() }
         toolbar.onSave                     = { [weak self] in self?.save() }
+        toolbar.onUndo                     = { [weak self] in self?.canvas.performUndo() }
+        toolbar.onRedo                     = { [weak self] in self?.canvas.performRedo() }
+        toolbar.onZoomOut                  = { [weak self] in
+            guard let self else { return }
+            self.canvas.zoom(to: self.scrollView.magnification / 1.25, in: self.scrollView)
+        }
+        toolbar.onZoomIn                   = { [weak self] in
+            guard let self else { return }
+            self.canvas.zoom(to: self.scrollView.magnification * 1.25, in: self.scrollView)
+        }
+        toolbar.onActualSize               = { [weak self] in
+            guard let self else { return }
+            self.canvas.zoom(to: 1, in: self.scrollView)
+        }
+        toolbar.onFit                      = { [weak self] in self?.fitCanvasToViewport() }
         toolbar.onCopy                     = { [weak self] in
             guard let self else { return }
             if self.canvas.isSelectingScreenshotText {
@@ -299,26 +268,20 @@ final class AnnotationWindowController: NSWindowController {
         canvas.onDirtyStateChanged = { [weak self] in
             guard let self else { return }
             self.window?.isDocumentEdited = self.canvas.hasUnsavedChanges
+            self.toolbar.setHistoryAvailability(canUndo: self.canvas.canUndo, canRedo: self.canvas.canRedo)
         }
 
-        // Build hierarchy FIRST, then configure layers (layers don't exist until views are in a window)
-        let container = PremiumEditorStageView(frame: NSRect(origin: .zero, size: windowSize))
-        container.addSubview(scrollView)
-        container.addSubview(toolbar)
-        win.contentView = container
+        toolbar.installViewport(scrollView)
+        win.contentView = toolbar
         win.delegate = self
-
-        // NOW layers exist — set masksToBounds on the clip view (the actual clipping mechanism)
-        scrollView.contentView.wantsLayer = true
-        scrollView.contentView.layer?.masksToBounds = true
-
         // Reflect the restored last-used tool/color/styles in the toolbar
         // (the canvas restored its own state from Settings at init)
         toolbar.selectToolExternally(canvas.activeTool)
         toolbar.setColorExternally(canvas.activeColor)
         refreshToolbarOptions()
 
-        // Fit oversized captures to the visible area on open; smaller images stay at 1:1
+        // Fit oversized captures to the visible area on open; smaller images stay at 1:1.
+        toolbar.layoutSubtreeIfNeeded()
         fitCanvasToViewport()
 
         win.makeFirstResponder(canvas)
@@ -349,6 +312,12 @@ final class AnnotationWindowController: NSWindowController {
         let size = canvas.frame.size
         guard viewport.width > 0, viewport.height > 0, size.width > 0, size.height > 0 else { return }
         scrollView.magnification = min(1, viewport.width / size.width, viewport.height / size.height)
+        updateZoomControls()
+    }
+
+    private func updateZoomControls() {
+        let scale = scrollView.magnification
+        toolbar.setZoom(scale, canZoomOut: scale > scrollView.minMagnification, canZoomIn: scale < scrollView.maxMagnification)
     }
 
     // MARK: – Screenshot text
@@ -540,50 +509,11 @@ final class CenteringClipView: NSClipView {
 }
 
 @MainActor
-private final class PremiumEditorStageView: NSView {
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-    }
+private final class AnnotationEditorScrollView: NSScrollView {
+    var onViewportChanged: (() -> Void)?
 
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func draw(_ dirtyRect: NSRect) {
-        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
-        let rect = bounds
-        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
-        let colors = [ShotnixColors.editorStageTop.cgColor, ShotnixColors.editorStageBottom.cgColor] as CFArray
-
-        if let gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: [0, 1]) {
-            ctx.drawLinearGradient(
-                gradient,
-                start: CGPoint(x: rect.midX, y: rect.minY),
-                end: CGPoint(x: rect.midX, y: rect.maxY),
-                options: []
-            )
-        } else {
-            ShotnixColors.editorStageTop.setFill()
-            rect.fill()
-        }
-
-        // Softer in the light, where a glow shows much more.
-        let dark = ShotnixTheme.isDark(effectiveAppearance)
-        drawGlow(in: ctx, rect: rect, color: NSColor.controlAccentColor.withAlphaComponent(dark ? 0.18 : 0.1), center: CGPoint(x: rect.maxX * 0.72, y: rect.minY + 24), radius: max(rect.width, rect.height) * 0.42)
-        drawGlow(in: ctx, rect: rect, color: NSColor.systemPurple.withAlphaComponent(dark ? 0.12 : 0.07), center: CGPoint(x: rect.minX + rect.width * 0.18, y: rect.maxY + 20), radius: max(rect.width, rect.height) * 0.36)
-    }
-
-    private func drawGlow(in context: CGContext, rect: CGRect, color: NSColor, center: CGPoint, radius: CGFloat) {
-        let colors = [color.cgColor, color.withAlphaComponent(0).cgColor] as CFArray
-        let colorSpace = color.cgColor.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
-        guard let gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: [0, 1]) else { return }
-        context.drawRadialGradient(
-            gradient,
-            startCenter: center,
-            startRadius: 0,
-            endCenter: center,
-            endRadius: radius,
-            options: .drawsAfterEndLocation
-        )
+    override func reflectScrolledClipView(_ clipView: NSClipView) {
+        super.reflectScrolledClipView(clipView)
+        onViewportChanged?()
     }
 }
-

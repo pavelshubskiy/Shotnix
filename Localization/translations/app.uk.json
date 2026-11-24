@@ -78,6 +78,9 @@
   "Accurate" : {
     "uk" : "Точне"
   },
+  "Actual Size" : {
+    "uk" : "Фактичний розмір"
+  },
   "Advanced Tools" : {
     "uk" : "Додаткові інструменти"
   },
@@ -471,6 +474,9 @@
   },
   "Finish and Quit" : {
     "uk" : "Дочекатися й завершити"
+  },
+  "Fit to Window" : {
+    "uk" : "Умістити у вікно"
   },
   "Fix" : {
     "uk" : "Виправити"
@@ -1018,6 +1024,9 @@
   "Select Screenshot Text" : {
     "uk" : "Виділити текст на знімку"
   },
+  "Select Text" : {
+    "uk" : "Виділити текст"
+  },
   "Select text, then press ⌘C" : {
     "uk" : "Виділіть текст і натисніть ⌘C"
   },
@@ -1301,6 +1310,12 @@
   },
   "Zoom" : {
     "uk" : "Масштаб"
+  },
+  "Zoom In" : {
+    "uk" : "Збільшити"
+  },
+  "Zoom Out" : {
+    "uk" : "Зменшити"
   },
   "macOS closed Shotnix last time because it ran out of memory" : {
     "uk" : "Минулого разу macOS закрила Shotnix через нестачу пам’яті"

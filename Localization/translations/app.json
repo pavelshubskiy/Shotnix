@@ -152,6 +152,11 @@
     "fr" : "Précise",
     "zh-Hans" : "精确"
   },
+  "Actual Size" : {
+    "de" : "Originalgröße",
+    "fr" : "Taille réelle",
+    "zh-Hans" : "实际大小"
+  },
   "Advanced Tools" : {
     "de" : "Erweiterte Werkzeuge",
     "fr" : "Outils avancés",
@@ -834,6 +839,11 @@
     "de" : "Abschließen und beenden",
     "fr" : "Terminer et quitter",
     "zh-Hans" : "完成后退出"
+  },
+  "Fit to Window" : {
+    "de" : "An Fenster anpassen",
+    "fr" : "Adapter à la fenêtre",
+    "zh-Hans" : "适合窗口"
   },
   "Fix" : {
     "comment" : "Health: button that fixes a problem",
@@ -1795,6 +1805,11 @@
     "fr" : "Sélectionner le texte de la capture",
     "zh-Hans" : "选择截图中的文字"
   },
+  "Select Text" : {
+    "de" : "Text auswählen",
+    "fr" : "Sélectionner le texte",
+    "zh-Hans" : "选择文字"
+  },
   "Select text, then press ⌘C" : {
     "de" : "Text auswählen, dann ⌘C",
     "fr" : "Sélectionnez le texte, puis ⌘C",
@@ -2288,6 +2303,16 @@
     "de" : "Zoom",
     "fr" : "Zoom",
     "zh-Hans" : "缩放"
+  },
+  "Zoom In" : {
+    "de" : "Vergrößern",
+    "fr" : "Zoom avant",
+    "zh-Hans" : "放大"
+  },
+  "Zoom Out" : {
+    "de" : "Verkleinern",
+    "fr" : "Zoom arrière",
+    "zh-Hans" : "缩小"
   },
   "macOS closed Shotnix last time because it ran out of memory" : {
     "comment" : "Crash report alert title, after macOS closed Shotnix for using too much memory",

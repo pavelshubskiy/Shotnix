@@ -1844,7 +1844,7 @@ final class AnnotationCanvas: NSView {
 
     // MARK: – Zoom
 
-    private func zoom(to magnification: CGFloat, in scrollView: NSScrollView) {
+    func zoom(to magnification: CGFloat, in scrollView: NSScrollView) {
         // Keep the current visible center stable while zooming
         let center = CGPoint(x: visibleRect.midX, y: visibleRect.midY)
         scrollView.setMagnification(magnification, centeredAt: center)

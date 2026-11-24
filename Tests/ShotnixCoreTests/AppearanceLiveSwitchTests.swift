@@ -110,8 +110,8 @@ final class AppearanceLiveSwitchTests: XCTestCase {
 
     func testTheScreenshotEditorsToolbarTurnsCompletely() throws {
         try assertTurnsCompletely("the screenshot editor's toolbar") {
-            let stage = NSView(frame: NSRect(x: 0, y: 0, width: AnnotationToolbar.requiredWidth + 40, height: AnnotationToolbar.height + 40))
-            let toolbar = AnnotationToolbar(frame: NSRect(x: 20, y: 20, width: AnnotationToolbar.requiredWidth, height: AnnotationToolbar.height))
+            let stage = NSView(frame: NSRect(x: 0, y: 0, width: AnnotationToolbar.minimumWidth + 40, height: AnnotationToolbar.minimumHeight + 40))
+            let toolbar = AnnotationToolbar(frame: NSRect(x: 20, y: 20, width: AnnotationToolbar.minimumWidth, height: AnnotationToolbar.minimumHeight))
             stage.addSubview(toolbar)
             return stage
         }

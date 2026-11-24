@@ -3,10 +3,7 @@ import SwiftUI
 import XCTest
 @testable import ShotnixCore
 
-/// The longer languages fit: the editor toolbar keeps its aligned layout in
-/// every language (and English keeps its design widths), and snapshots of
-/// Settings, the menu, the welcome window, and the editor's toolbar and
-/// popovers render in English, German, French, and Chinese to look at.
+/// Checks translated layouts and renders snapshots across supported languages.
 @MainActor
 final class LocalizedLayoutTests: XCTestCase {
     private static let languages = ["en"] + L10n.translations
@@ -26,38 +23,11 @@ final class LocalizedLayoutTests: XCTestCase {
 
     // MARK: The editor toolbar
 
-    func testEnglishToolbarKeepsItsDesignWidths() {
-        L10n.use("en")
-        // Tool groups 612, options group 204, Background 110, Copy and Save 54 each, gaps and insets.
-        XCTAssertEqual(AnnotationToolbar.requiredWidth, 1070, "English looks exactly as designed")
-
-        // The options area, control by control, as designed.
-        let toolbar = AnnotationToolbar(frame: NSRect(x: 0, y: 0, width: AnnotationToolbar.requiredWidth, height: AnnotationToolbar.height))
-        let design: [(AnnotationToolOptions.Context, [NSRect])] = [
-            (.stroke, [NSRect(x: 0, y: 17, width: 30, height: 16), NSRect(x: 32, y: 11, width: 122, height: 28)]),
-            (.rectangle, [NSRect(x: 0, y: 17, width: 30, height: 16), NSRect(x: 32, y: 11, width: 84, height: 28), NSRect(x: 124, y: 10, width: 30, height: 30)]),
-            (.text, [NSRect(x: 0, y: 11, width: 84, height: 28), NSRect(x: 88, y: 10, width: 30, height: 30), NSRect(x: 122, y: 10, width: 30, height: 30)]),
-            (.redaction, [NSRect(x: 0, y: 17, width: 50, height: 16), NSRect(x: 52, y: 11, width: 102, height: 28)]),
-            (.spotlight, [NSRect(x: 0, y: 17, width: 38, height: 16), NSRect(x: 42, y: 13, width: 84, height: 24)]),
-            (.crop, [NSRect(x: 0, y: 10, width: 74, height: 30), NSRect(x: 80, y: 10, width: 74, height: 30)]),
-            (.none, [NSRect(x: 0, y: 17, width: 154, height: 16)]),
-        ]
-        for (context, frames) in design {
-            toolbar.showOptions(AnnotationToolOptions(context: context))
-            XCTAssertEqual(toolbar.visibleOptionControls.map(\.frame), frames, "\(context)")
-        }
-    }
-
     func testToolbarStaysAlignedAndFitsItsTitlesInEveryLanguage() throws {
         for language in Self.languages {
             L10n.use(language)
-            let toolbar = AnnotationToolbar(frame: NSRect(x: 0, y: 0, width: AnnotationToolbar.requiredWidth, height: AnnotationToolbar.height))
-            let groups = toolbar.groupFrames
-            XCTAssertEqual(groups.first?.minX ?? 0, 8, accuracy: 0.001, language)
-            for (left, right) in zip(groups, groups.dropFirst()) {
-                XCTAssertEqual(right.minX - left.maxX, 8, accuracy: 0.001, "\(language): even gaps between groups")
-            }
-            XCTAssertEqual(AnnotationToolbar.requiredWidth - toolbar.trailingControlMaxX, 8, accuracy: 0.001, "\(language): same margin on the right")
+            let toolbar = AnnotationToolbar(frame: NSRect(x: 0, y: 0, width: AnnotationToolbar.minimumWidth, height: AnnotationToolbar.minimumHeight))
+            toolbar.layoutSubtreeIfNeeded()
 
             // Every text button's title fits inside it (tool buttons are icons).
             for button in Self.subviews(of: toolbar).compactMap({ $0 as? NSButton }) where button.image == nil && !button.title.isEmpty && !button.isHidden {
@@ -69,8 +39,12 @@ final class LocalizedLayoutTests: XCTestCase {
             let contexts: [AnnotationToolOptions.Context] = [.stroke, .rectangle, .text, .redaction, .spotlight, .crop, .none]
             for context in contexts {
                 toolbar.showOptions(AnnotationToolOptions(context: context, canApplyCrop: true, canResetCrop: true))
+                toolbar.layoutSubtreeIfNeeded()
+                let zoomOut = try XCTUnwrap(Self.subviews(of: toolbar).compactMap { $0 as? NSButton }.first { $0.accessibilityLabel() == L("Zoom Out") })
+                let zoomStart = toolbar.convert(zoomOut.bounds, from: zoomOut).minX
                 for control in toolbar.visibleOptionControls {
-                    XCTAssertLessThanOrEqual(control.frame.maxX, 154.5, "\(language) \(context): \(type(of: control)) stays in the options area")
+                    let frame = toolbar.convert(control.bounds, from: control)
+                    XCTAssertLessThanOrEqual(frame.maxX, zoomStart, "\(language) \(context): \(type(of: control)) stays clear of zoom")
                     if let label = control as? NSTextField, label.maximumNumberOfLines != 2 {
                         XCTAssertLessThanOrEqual(ceil(label.intrinsicContentSize.width), label.frame.width, "\(language) \(context): “\(label.stringValue)” isn't cut off")
                     }
@@ -86,25 +60,25 @@ final class LocalizedLayoutTests: XCTestCase {
     func testRenderEditorToolbarInEveryLanguage() throws {
         let states: [(AnnotationTool, AnnotationToolOptions)] = [
             (.select, AnnotationToolOptions(context: .none)),
-            (.numberedStep, AnnotationToolOptions(context: .none)),
+            (.scanText, AnnotationToolOptions(context: .none)),
             (.arrow, AnnotationToolOptions(context: .stroke)),
             (.rectangle, AnnotationToolOptions(context: .rectangle, roundedCorners: true)),
             (.text, AnnotationToolOptions(context: .text, isOutlined: true)),
-            (.blur, AnnotationToolOptions(context: .redaction)),
+            (.pixelate, AnnotationToolOptions(context: .redaction)),
             (.spotlight, AnnotationToolOptions(context: .spotlight)),
             (.crop, AnnotationToolOptions(context: .crop, canApplyCrop: true, canResetCrop: true)),
         ]
         for language in Self.languages {
             L10n.use(language)
-            let width = AnnotationToolbar.requiredWidth + 32
-            let rowHeight = AnnotationToolbar.height + 14
+            let width = AnnotationToolbar.minimumWidth + 32
+            let rowHeight = AnnotationToolbar.minimumHeight + 14
             let stage = Self.stage(size: NSSize(width: width, height: CGFloat(states.count) * rowHeight + 18))
             for (index, state) in states.enumerated() {
                 let toolbar = AnnotationToolbar(frame: NSRect(
                     x: 16,
                     y: stage.bounds.height - 16 - CGFloat(index + 1) * rowHeight + 14,
-                    width: AnnotationToolbar.requiredWidth,
-                    height: AnnotationToolbar.height
+                    width: AnnotationToolbar.minimumWidth,
+                    height: AnnotationToolbar.minimumHeight
                 ))
                 toolbar.selectToolExternally(state.0)
                 toolbar.showOptions(state.1)

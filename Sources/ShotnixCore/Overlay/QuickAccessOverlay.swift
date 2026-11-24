@@ -81,8 +81,7 @@ enum QuickAccessStackLayout {
 }
 
 /// Non-activating panel: the overlay appears without stealing focus from the
-/// app the user is working in — they keep typing, the thumbnail just slides
-/// in. Keyboard shortcuts engage on hover, when the panel takes key status
+/// app the user is working in — they keep typing while the thumbnail appears. Keyboard shortcuts engage on hover, when the panel takes key status
 /// without activating the app (the Spotlight mechanism). Internal so tests
 /// can photograph it; the app opens it through `QuickAccessOverlay.show`.
 @MainActor
@@ -90,8 +89,10 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
 
     /// Keep strong refs so ARC doesn't deallocate while visible.
     private static var openWindows: [QuickAccessWindow] = []
-    private static let previewSize = CGSize(width: 240, height: 150)
-    private static let toolbarHeight: CGFloat = 38
+    private static let previewSize = CGSize(width: 256, height: 150)
+    private static let toolbarHeight: CGFloat = 42
+    private static let previewInset: CGFloat = 6
+    private static let cornerRadius: CGFloat = 14
     private static let progressHeight: CGFloat = 2
 
     private var dismissTimer: Timer?
@@ -105,7 +106,6 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
     private var anchor: CGPoint?
     private weak var timeoutProgressLayer: CALayer?
     private var isHovered = false
-    private var mouseInsideOverlay = false
     private var swipeAccumX: CGFloat = 0
 
     init(image: NSImage, historyItem: HistoryItem, historyManager: HistoryManager, anchor: CGPoint? = nil) {
@@ -116,7 +116,7 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
 
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: Self.previewSize.width,
-                                height: Self.previewSize.height + Self.toolbarHeight + Self.progressHeight),
+                                height: Self.previewSize.height + Self.toolbarHeight + Self.progressHeight + Self.previewInset),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -179,37 +179,14 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
             return self.handleShortcut(event) ? nil : event
         }
 
-        // Global mouse: hover tracking while the app is inactive. On enter the
-        // nonactivating panel takes key status for ⌘C/⌘S/⌘E/Esc WITHOUT
-        // activating the app; on exit it hands keyboard focus straight back to
-        // whatever app the user is working in.
+        // Both paths must release focus on exit, even when the pointer crosses
+        // between this app and another app before the next movement event.
         globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] _ in
-            guard let self, !self.isClosing else { return }
-            let inside = self.frame.contains(NSEvent.mouseLocation)
-            guard inside != self.mouseInsideOverlay else { return }
-            self.mouseInsideOverlay = inside
-            DispatchQueue.main.async {
-                self.setHovered(inside)
-                if inside {
-                    self.makeKeyAndOrderFront(nil)
-                    self.makeFirstResponder(self)
-                } else if self.isKeyWindow {
-                    // Ordering out drops key status back to the user's app;
-                    // both calls land in one transaction, so no visible blink.
-                    self.orderOut(nil)
-                    self.orderFrontRegardless()
-                }
-            }
+            DispatchQueue.main.async { self?.updatePointerInteraction() }
         }
 
-        // Local mouse: keeps window key while hovering + tracks hover state
         localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved]) { [weak self] event in
-            guard let self, !self.isClosing else { return event }
-            let inside = self.frame.contains(NSEvent.mouseLocation)
-            self.setHovered(inside)
-            if inside && !self.isKeyWindow {
-                self.makeKey()
-            }
+            self?.updatePointerInteraction()
             return event
         }
 
@@ -227,6 +204,20 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
                 return nil
             }
             return event
+        }
+    }
+
+    func updatePointerInteraction(at point: NSPoint = NSEvent.mouseLocation, takeFocus: Bool = true) {
+        guard isVisible, !isClosing else { return }
+        let inside = frame.contains(point)
+        setHovered(inside)
+        if inside && takeFocus && !isKeyWindow {
+            makeKey()
+            makeFirstResponder(self)
+        } else if !inside && isKeyWindow {
+            // A nonactivating panel releases keyboard focus without leaving
+            // the window list or changing its position in the stack.
+            resignKey()
         }
     }
 
@@ -258,13 +249,12 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         )
     }
 
-    /// Renders the capture scaled to FILL the given point size — center-
-    /// cropping overflow and upscaling small captures — with high-quality
+    /// Renders the full capture inside the given point size with high-quality
     /// interpolation. The GPU's default layer scaling softens small text;
     /// pre-scaling on the CPU keeps UI captures (menus, dialogs) crisp.
     /// Preserves the source's RGB color space so ICC-correct captures don't
     /// shift. Falls back to the original image on any failure.
-    private func crispPreviewImage(for source: NSImage, filling size: NSSize) -> NSImage {
+    private func crispPreviewImage(for source: NSImage, fitting size: NSSize) -> NSImage {
         guard size.width > 1, size.height > 1, let cgImage = source.bestCGImage else { return source }
         let scale = NSScreen.main?.backingScaleFactor ?? 2.0
         let targetWidth = Int((size.width * scale).rounded())
@@ -282,9 +272,9 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return source }
         context.interpolationQuality = .high
-        let fillScale = max(CGFloat(targetWidth) / CGFloat(max(cgImage.width, 1)), CGFloat(targetHeight) / CGFloat(max(cgImage.height, 1)))
-        let drawWidth = CGFloat(cgImage.width) * fillScale
-        let drawHeight = CGFloat(cgImage.height) * fillScale
+        let fitScale = min(CGFloat(targetWidth) / CGFloat(max(cgImage.width, 1)), CGFloat(targetHeight) / CGFloat(max(cgImage.height, 1)))
+        let drawWidth = CGFloat(cgImage.width) * fitScale
+        let drawHeight = CGFloat(cgImage.height) * fitScale
         context.draw(cgImage, in: CGRect(
             x: (CGFloat(targetWidth) - drawWidth) / 2,
             y: (CGFloat(targetHeight) - drawHeight) / 2,
@@ -298,43 +288,36 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
     private func buildContent() {
         let container = OverlayContentView(frame: NSRect(origin: .zero, size: frame.size))
         container.wantsLayer = true
-        container.layer?.cornerRadius = 12
-        container.layer?.cornerCurve = .continuous
-        container.layer?.masksToBounds = false
-        container.layer?.shadowColor = NSColor.black.cgColor
-        container.layer?.shadowOpacity = 0.55
-        container.layer?.shadowRadius = 30
-        container.layer?.shadowOffset = CGSize(width: 0, height: -10)
         contentView = container
 
-        // Clip subviews so content respects corner radius while shadow remains visible
         let clipView = NSView(frame: container.bounds)
         clipView.wantsLayer = true
-        clipView.layer?.cornerRadius = 12
+        clipView.layer?.cornerRadius = Self.cornerRadius
         clipView.layer?.cornerCurve = .continuous
         clipView.layer?.masksToBounds = true
-        // Subtle dark tint — frames content, visible at rounded corners and behind image
-        clipView.layer?.backgroundColor = ShotnixColors.overlayTint.hudCGColor
+        clipView.layer?.backgroundColor = ShotnixColors.overlayContainerFill.withAlphaComponent(1).hudCGColor
         container.addSubview(clipView)
 
-        // White border — primary edge definition on light wallpapers (shadow handles dark)
         let borderView = PassthroughView(frame: container.bounds)
         borderView.wantsLayer = true
-        borderView.layer?.cornerRadius = 12
+        borderView.layer?.cornerRadius = Self.cornerRadius
         borderView.layer?.cornerCurve = .continuous
-        borderView.layer?.borderWidth = 1.5
+        borderView.layer?.borderWidth = 1
         borderView.layer?.borderColor = ShotnixColors.overlayBorder.hudCGColor
         container.addSubview(borderView)
 
         // The whole preview is the drag target. Actions live below it.
-        let thumbFrame = NSRect(origin: CGPoint(x: 0, y: Self.toolbarHeight + Self.progressHeight),
-                                size: Self.previewSize)
+        let thumbFrame = NSRect(x: Self.previewInset, y: Self.toolbarHeight + Self.progressHeight,
+                                width: Self.previewSize.width - 2 * Self.previewInset, height: Self.previewSize.height)
         let thumb = DraggableImageView(frame: thumbFrame)
-        thumb.image = crispPreviewImage(for: image, filling: thumbFrame.size)
+        thumb.image = crispPreviewImage(for: image, fitting: thumbFrame.size)
         thumb.imageScaling = .scaleProportionallyUpOrDown
         thumb.imageAlignment = .alignCenter
         thumb.wantsLayer = true
-        thumb.layer?.backgroundColor = ShotnixColors.overlayContainerFill.hudCGColor
+        thumb.layer?.backgroundColor = NSColor(white: 0.055, alpha: 1).cgColor
+        thumb.layer?.cornerRadius = 9
+        thumb.layer?.cornerCurve = .continuous
+        thumb.layer?.masksToBounds = true
         thumb.layer?.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
         thumb.dragImage = image
         thumb.dragFileProvider = { [weak self] in self?.makeDragFile() }
@@ -373,9 +356,6 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
 
     private func makeToolbar() -> NSView {
         let bar = NSView(frame: NSRect(x: 0, y: Self.progressHeight, width: Self.previewSize.width, height: Self.toolbarHeight))
-        bar.wantsLayer = true
-        bar.layer?.backgroundColor = ShotnixColors.overlayContainerFill.withAlphaComponent(1).hudCGColor
-
         let actions: [(symbol: String, label: String, selector: Selector)] = [
             ("doc.on.doc", L("Copy image to clipboard"), #selector(copyAction)),
             ("square.and.arrow.down", L("Save screenshot to disk"), #selector(saveAction)),
@@ -386,20 +366,23 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
             ("xmark", L("Close"), #selector(dismissAction)),
         ]
         let symbol = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-        let buttonWidth: CGFloat = 30
+        let buttonWidth: CGFloat = 32
         let gap: CGFloat = 2
-        let groupGap: CGFloat = 6
+        let groupGap: CGFloat = 8
         let rowWidth = CGFloat(actions.count) * buttonWidth + CGFloat(actions.count - 1) * gap + groupGap
         var x = (bar.bounds.width - rowWidth) / 2
         for (index, action) in actions.enumerated() {
             if index == 5 {
-                let divider = PassthroughView(frame: NSRect(x: x + 2, y: 11, width: 1, height: 16))
+                let divider = PassthroughView(frame: NSRect(x: x + 2, y: 13, width: 1, height: 16))
                 divider.wantsLayer = true
                 divider.layer?.backgroundColor = ShotnixColors.overlayBorder.hudCGColor
                 bar.addSubview(divider)
                 x += groupGap
             }
-            let button = OverlayToolbarButton(frame: NSRect(x: x, y: 3, width: buttonWidth, height: 32))
+            let button = OverlayToolbarButton(
+                frame: NSRect(x: x, y: 5, width: buttonWidth, height: 32),
+                isPrimary: index == 0
+            )
             button.image = NSImage(systemSymbolName: action.symbol, accessibilityDescription: nil)?.withSymbolConfiguration(symbol)
             button.setAccessibilityLabel(action.label)
             button.toolTip = action.label
@@ -491,7 +474,7 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
             for (index, window) in group.enumerated() {
                 guard let target = window.slotOrigin(index: index),
                       window.frame.origin != target else { continue }
-                if animated {
+                if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
                     NSAnimationContext.runAnimationGroup({ ctx in
                         ctx.duration = 0.35
                         // Fast start, soft landing — the "drop" feel.
@@ -504,12 +487,12 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
                         // cursor gets no mouse event — re-evaluate hover so
                         // its dismiss timer pauses/resumes correctly.
                         Task { @MainActor in
-                            guard !window.isClosing else { return }
-                            window.setHovered(window.frame.contains(NSEvent.mouseLocation))
+                            window.updatePointerInteraction(takeFocus: false)
                         }
                     })
                 } else {
                     window.setFrameOrigin(target)
+                    window.updatePointerInteraction(takeFocus: false)
                 }
             }
         }
@@ -540,35 +523,14 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
             guard let origin = slotOrigin(index: slot) else { return }
             setFrameOrigin(origin)
         }
-        // Start at final position (slide-up is handled by scale spring, not position offset)
-        alphaValue = 0
-
-        // Order front WITHOUT activating or taking key — the user keeps typing
-        // in their app. Hover engages keyboard via the nonactivating panel.
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        alphaValue = reduceMotion ? 1 : 0
         orderFrontRegardless()
-        setHovered(frame.contains(NSEvent.mouseLocation))
+        updatePointerInteraction(takeFocus: false)
 
-        // Scale entrance: start at 92% and spring to 100%
-        if let layer = contentView?.layer {
-            layer.anchorPoint = CGPoint(x: 0.5, y: 0)
-            layer.position = CGPoint(x: frame.width / 2, y: 0)
-
-            let scaleAnim = CASpringAnimation(keyPath: "transform.scale")
-            scaleAnim.fromValue = 0.92
-            scaleAnim.toValue = 1.0
-            scaleAnim.mass = 1.0
-            scaleAnim.stiffness = 300
-            scaleAnim.damping = 18
-            scaleAnim.initialVelocity = 0
-            scaleAnim.duration = scaleAnim.settlingDuration
-            scaleAnim.fillMode = .forwards
-            scaleAnim.isRemovedOnCompletion = false
-            layer.add(scaleAnim, forKey: "entranceScale")
-        }
-
-        // Fade in (scale spring handles the motion)
+        guard !reduceMotion else { return }
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.3
+            ctx.duration = 0.16
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             self.animator().alphaValue = 1
         }
@@ -581,6 +543,11 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         dismissTimer?.invalidate()
         // Cards above drop down while this one slides away.
         Self.relayoutStacks(animated: true)
+
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            forceCleanup()
+            return
+        }
 
         let slideDistance: CGFloat = frame.width + 40
         let targetX = frame.origin.x + (direction * slideDistance)
@@ -611,6 +578,11 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         // Cards above drop down while this one fades out.
         Self.relayoutStacks(animated: true)
 
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            forceCleanup()
+            return
+        }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
             self?.forceCleanup()
         }
@@ -618,16 +590,6 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.12
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            
-            if let layer = self.contentView?.layer {
-                let scaleAnim = CABasicAnimation(keyPath: "transform.scale")
-                scaleAnim.toValue = 0.95
-                scaleAnim.duration = 0.12
-                scaleAnim.fillMode = .forwards
-                scaleAnim.isRemovedOnCompletion = false
-                layer.add(scaleAnim, forKey: "exitScale")
-            }
-            
             self.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
             DispatchQueue.main.async { self?.forceCleanup() }
@@ -955,16 +917,20 @@ private final class PassthroughView: NSView {
 
 @MainActor
 private final class OverlayToolbarButton: NSButton {
-    override init(frame: NSRect) {
+    private let isPrimary: Bool
+
+    init(frame: NSRect, isPrimary: Bool) {
+        self.isPrimary = isPrimary
         super.init(frame: frame)
         isBordered = false
         imagePosition = .imageOnly
         imageScaling = .scaleNone
-        contentTintColor = .white
+        contentTintColor = isPrimary ? .black : NSColor.white.withAlphaComponent(0.86)
         setButtonType(.momentaryChange)
         wantsLayer = true
-        layer?.cornerRadius = 6
+        layer?.cornerRadius = 7
         layer?.cornerCurve = .continuous
+        updateFill()
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited], owner: self))
     }
 
@@ -973,16 +939,26 @@ private final class OverlayToolbarButton: NSButton {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
 
+    private func updateFill(hovered: Bool = false, pressed: Bool = false) {
+        if isPrimary {
+            let brightness = pressed ? 0.78 : (hovered ? 1 : 0.91)
+            layer?.backgroundColor = NSColor(white: brightness, alpha: 1).cgColor
+        } else {
+            let opacity = pressed ? 0.22 : (hovered ? 0.12 : 0)
+            layer?.backgroundColor = NSColor.white.withAlphaComponent(opacity).cgColor
+        }
+    }
+
     override func mouseEntered(with event: NSEvent) {
-        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
+        updateFill(hovered: true)
     }
 
     override func mouseExited(with event: NSEvent) {
-        layer?.backgroundColor = nil
+        updateFill()
     }
 
     override func mouseDown(with event: NSEvent) {
-        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.22).cgColor
+        updateFill(pressed: true)
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .default)
         super.mouseDown(with: event)
         if let window, bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil)) {

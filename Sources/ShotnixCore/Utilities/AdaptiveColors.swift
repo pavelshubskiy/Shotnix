@@ -2,13 +2,6 @@ import AppKit
 
 enum ShotnixColors {
 
-    static let overlayTint = NSColor(name: "overlayTint") { appearance in
-        switch appearance.bestMatch(from: [.aqua, .darkAqua]) {
-        case .darkAqua: return NSColor.white.withAlphaComponent(0.06)
-        default:        return NSColor.black.withAlphaComponent(0.08)
-        }
-    }
-
     /// Solid fill behind the capture thumbnail in QuickAccessOverlay.
     /// Needs to be opaque enough to read as a proper container when the
     /// image is letterboxed inside the fixed overlay size.

@@ -21,6 +21,33 @@ final class CaptureChromeTests: XCTestCase {
 
     // MARK: Quick access stack
 
+    func testQuickAccessReleasesKeyboardFocusWithoutHiding() throws {
+        guard NSScreen.main != nil else { throw XCTSkip("no screen") }
+        let storage = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: storage) }
+        let manager = HistoryManager(storageDir: storage)
+        let image = Self.sampleImage()
+        let item = manager.add(image: image, rect: nil, type: .area)
+        let window = QuickAccessWindow(image: image, historyItem: item, historyManager: manager)
+        windows.append(window)
+        defer { window.closeFromCommand() }
+
+        let frame = window.frame
+        let inside = NSPoint(x: frame.midX, y: frame.midY)
+        let outside = NSPoint(x: frame.maxX + 1, y: frame.midY)
+        let windowNumber = window.windowNumber
+        for _ in 0..<3 {
+            window.updatePointerInteraction(at: inside)
+            XCTAssertTrue(window.isKeyWindow)
+            window.updatePointerInteraction(at: outside)
+            XCTAssertFalse(window.isKeyWindow)
+            XCTAssertTrue(window.isVisible)
+            XCTAssertEqual(window.windowNumber, windowNumber)
+            XCTAssertEqual(window.frame, frame)
+        }
+    }
+
     func testAreaThumbnailSitsJustBelowAndRightOfTheReleasePoint() {
         let visible = CGRect(x: 0, y: 40, width: 1440, height: 830)
         let point = CGPoint(x: 500, y: 500)

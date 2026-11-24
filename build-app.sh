@@ -5,6 +5,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Shotnix"
 APP_BUNDLE="$SCRIPT_DIR/$APP_NAME.app"
 ENTITLEMENTS="$SCRIPT_DIR/Shotnix.entitlements"
+LOCAL_FORK=false
+if [ "${1:-}" = "--local-fork" ]; then
+    LOCAL_FORK=true
+fi
 
 if [ -f "$SCRIPT_DIR/.env.local" ]; then
     set -a
@@ -17,10 +21,25 @@ TIMESTAMP_MODE="${SHOTNIX_CODESIGN_TIMESTAMP:-auto}"
 SPARKLE_PUBLIC_ED_KEY="${SHOTNIX_SPARKLE_PUBLIC_ED_KEY:-}"
 REQUIRE_SPARKLE_KEY="${SHOTNIX_REQUIRE_SPARKLE_KEY:-false}"
 
-echo "▶ Building $APP_NAME (release)…"
 cd "$SCRIPT_DIR"
-swift build -c release 2>&1
-BUILD_DIR="$(swift build -c release --show-bin-path)"
+if [ "$LOCAL_FORK" = true ]; then
+    FORK_NAME="Shotnix Fork"
+    FORK_ID="ru.shubskiy.shotnix.fork"
+    SIGN_IDENTITY="Shotnix Fork Local Code Signing"
+    TIMESTAMP_MODE=false
+    mkdir -p .build
+    STAGING_DIR="$(mktemp -d "$SCRIPT_DIR/.build/local-fork.XXXXXX")"
+    trap 'rm -rf "$STAGING_DIR"' EXIT
+    APP_BUNDLE="$STAGING_DIR/$FORK_NAME.app"
+fi
+
+if [ "$LOCAL_FORK" = true ] && [ -n "${SHOTNIX_FORK_BUILD_DIR:-}" ]; then
+    BUILD_DIR="$SHOTNIX_FORK_BUILD_DIR"
+else
+    echo "▶ Building $APP_NAME (release)…"
+    swift build -c release 2>&1
+    BUILD_DIR="$(swift build -c release --show-bin-path)"
+fi
 
 BINARY="$BUILD_DIR/$APP_NAME"
 if [ ! -f "$BINARY" ]; then
@@ -36,7 +55,14 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 cp "$BINARY"              "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 cp "$SCRIPT_DIR/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 
-if [ -n "$SPARKLE_PUBLIC_ED_KEY" ]; then
+if [ "$LOCAL_FORK" = true ]; then
+    FORK_PLIST="$APP_BUNDLE/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $FORK_ID" "$FORK_PLIST"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleName $FORK_NAME" "$FORK_PLIST"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $FORK_NAME" "$FORK_PLIST"
+    /usr/libexec/PlistBuddy -c 'Delete :SUFeedURL' "$FORK_PLIST"
+    /usr/libexec/PlistBuddy -c 'Delete :SUPublicEDKey' "$FORK_PLIST"
+elif [ -n "$SPARKLE_PUBLIC_ED_KEY" ]; then
     /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $SPARKLE_PUBLIC_ED_KEY" "$APP_BUNDLE/Contents/Info.plist"
 elif [[ "$REQUIRE_SPARKLE_KEY" =~ ^(1|true|yes|on)$ ]]; then
     echo "✗ SHOTNIX_SPARKLE_PUBLIC_ED_KEY is required when SHOTNIX_REQUIRE_SPARKLE_KEY=true."
@@ -105,8 +131,8 @@ fi
 
 echo "Signing with $SIGN_IDENTITY..."
 SIGN_ARGS=(--force --deep --sign "$SIGN_IDENTITY" --entitlements "$ENTITLEMENTS")
-# Ad-hoc signing has no Team ID for Hardened Runtime to validate Sparkle against.
-if [ "$SIGN_IDENTITY" != "-" ]; then
+# The local and ad-hoc identities have no Team ID to validate embedded Sparkle.
+if [ "$LOCAL_FORK" = false ] && [ "$SIGN_IDENTITY" != "-" ]; then
     SIGN_ARGS+=(--options runtime)
 fi
 
@@ -115,6 +141,7 @@ case "$TIMESTAMP_MODE" in
         SIGN_ARGS+=(--timestamp)
         ;;
     0|false|no|off|none)
+        SIGN_ARGS+=(--timestamp=none)
         ;;
     auto)
         if [[ "$SIGN_IDENTITY" == Developer\ ID\ Application:* ]]; then
@@ -129,6 +156,27 @@ case "$TIMESTAMP_MODE" in
 esac
 
 codesign "${SIGN_ARGS[@]}" "$APP_BUNDLE"
+
+if [ "$LOCAL_FORK" = true ]; then
+    codesign --verify --deep --strict "$APP_BUNDLE"
+    if /usr/bin/lsappinfo info -only pid "$FORK_ID" | grep -qE '"pid"=[1-9]'; then
+        echo "✗ Quit $FORK_NAME before replacing it."
+        exit 1
+    fi
+    FORK_DEST="$SCRIPT_DIR/$FORK_NAME.app"
+    if [ -e "$FORK_DEST" ]; then
+        mv "$FORK_DEST" "$STAGING_DIR/previous-bundle"
+    fi
+    if ! mv "$APP_BUNDLE" "$FORK_DEST"; then
+        if [ -e "$STAGING_DIR/previous-bundle" ] && ! mv "$STAGING_DIR/previous-bundle" "$FORK_DEST"; then
+            trap - EXIT
+            echo "✗ Previous bundle: $STAGING_DIR/previous-bundle"
+        fi
+        exit 1
+    fi
+    echo "✓ $FORK_DEST"
+    exit 0
+fi
 
 echo "▶ Copying to /Applications…"
 APPS_DEST="/Applications/$APP_NAME.app"

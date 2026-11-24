@@ -13,7 +13,9 @@ swift build
 swift test
 ```
 
-`build-app.sh` собирает и подписывает `.app`, затем заменяет `/Applications/Shotnix.app`. Для проверки компиляции достаточно `swift build`.
+Для обновления форка закрой `Shotnix Fork` и запусти `bash build-app.sh --local-fork`. Скрипт обновляет `Shotnix Fork.app` в корне репозитория с постоянным идентификатором `ru.shubskiy.shotnix.fork` и сертификатом `Shotnix Fork Local Code Signing` из связки ключей login. Сборка требует полный Xcode для SwiftUI-превью в KeyboardShortcuts. Если бинарник и ресурсы уже собраны, укажи их каталог через `SHOTNIX_FORK_BUILD_DIR`.
+
+Запуск `build-app.sh` без аргументов предназначен для обычной сборки Shotnix и заменяет `/Applications/Shotnix.app`.
 
 ## Обновление из оригинала
 

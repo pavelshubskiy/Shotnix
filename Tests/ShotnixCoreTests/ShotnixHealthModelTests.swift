@@ -7,7 +7,6 @@ final class ShotnixHealthModelTests: XCTestCase {
         let snapshot = ShotnixHealthSnapshot(
             screenRecordingGranted: true,
             nativeShortcutsEnabled: false,
-            updatesConfigured: true,
             autoSavePath: "/tmp",
             autoSaveWritable: true,
             configuredShortcutCount: ShotnixShortcut.requiredShortcutCount,
@@ -21,7 +20,6 @@ final class ShotnixHealthModelTests: XCTestCase {
 
         XCTAssertEqual(Set(rows.map(\.kind)), Set(ShotnixHealthKind.allCases))
         XCTAssertEqual(ShotnixHealthModel.summary(snapshot: snapshot), .ok)
-        XCTAssertEqual(rows.first(where: { $0.kind == .updates })?.detail, "Enabled")
         XCTAssertEqual(rows.first(where: { $0.kind == .version })?.detail, "0.16.0 (25)")
         XCTAssertEqual(rows.first(where: { $0.kind == .shortcuts })?.detail, "All configured")
     }
@@ -30,7 +28,6 @@ final class ShotnixHealthModelTests: XCTestCase {
         let snapshot = ShotnixHealthSnapshot(
             screenRecordingGranted: true,
             nativeShortcutsEnabled: false,
-            updatesConfigured: true,
             autoSavePath: "/tmp",
             autoSaveWritable: true,
             configuredShortcutCount: ShotnixShortcut.requiredShortcutCount,
@@ -53,7 +50,6 @@ final class ShotnixHealthModelTests: XCTestCase {
         let snapshot = ShotnixHealthSnapshot(
             screenRecordingGranted: false,
             nativeShortcutsEnabled: true,
-            updatesConfigured: false,
             autoSavePath: "/missing",
             autoSaveWritable: false,
             configuredShortcutCount: 5,

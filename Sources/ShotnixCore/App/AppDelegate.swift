@@ -259,14 +259,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if statusItemIsEffectivelyVisible, let button = statusItem.button {
             menuPresenter.showCommandCenter(
                 sections: commandCenterSections(),
-                healthRows: ShotnixHealthModel.rows(snapshot: .live(updatesConfigured: AppUpdateConfiguration.current != nil)),
+                healthRows: ShotnixHealthModel.rows(snapshot: .live()),
                 healthActions: healthActions(),
                 relativeTo: button
             )
         } else {
             menuPresenter.showCommandCenterDetached(
                 sections: commandCenterSections(),
-                healthRows: ShotnixHealthModel.rows(snapshot: .live(updatesConfigured: AppUpdateConfiguration.current != nil)),
+                healthRows: ShotnixHealthModel.rows(snapshot: .live()),
                 healthActions: healthActions()
             )
         }
@@ -463,7 +463,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func openPreferences()     { PreferencesWindowController.shared.show(tab: .general) }
     @objc func openShortcutsPreferences() { PreferencesWindowController.shared.show(tab: .shortcuts) }
     @objc func openAbout()           { PreferencesWindowController.shared.show(tab: .about) }
-    @objc func checkForUpdates(_ sender: Any?) { updateController?.checkForUpdates(sender) }
     /// ⌘W: closes whichever Shotnix window is key — editors, history, pins,
     /// Settings, the post-capture thumbnail.
     @objc func closeKeyWindow(_ sender: Any?) {
@@ -580,7 +579,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button else { return }
         menuPresenter.showCommandCenter(
             sections: commandCenterSections(),
-            healthRows: ShotnixHealthModel.rows(snapshot: .live(updatesConfigured: AppUpdateConfiguration.current != nil)),
+            healthRows: ShotnixHealthModel.rows(snapshot: .live()),
             healthActions: healthActions(),
             relativeTo: button
         )
@@ -658,7 +657,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ShotnixMenuSection(id: "settings", title: L("Settings"), actions: [
                 action(id: "settings.preferences", title: L("Preferences"), symbol: "gearshape", shortcutText: "⌘,") { [weak self] in self?.openPreferences() },
                 action(id: "settings.about", title: L("About Shotnix"), symbol: "info.circle") { [weak self] in self?.openAbout() },
-                action(id: "settings.update", title: L("Check for Updates"), symbol: "arrow.triangle.2.circlepath", isEnabled: updateController?.canCheckForUpdates ?? false) { [weak self] in self?.checkForUpdates(nil) },
                 action(id: "settings.quit", title: L("Quit Shotnix"), symbol: "power", shortcutText: "⌘Q", role: .destructive) { NSApp.terminate(nil) },
             ]),
         ]
@@ -674,7 +672,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     NativeShortcutManager.openKeyboardSettings()
                 }
             },
-            .updates: { [weak self] in self?.checkForUpdates(nil) },
             .autoSave: { [weak self] in self?.chooseAutoSaveFolder() },
             .shortcuts: { [weak self] in self?.openShortcutsPreferences() }
         ]

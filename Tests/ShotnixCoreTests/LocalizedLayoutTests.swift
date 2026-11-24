@@ -217,13 +217,13 @@ final class LocalizedLayoutTests: XCTestCase {
     func testRenderCommandCenterInEveryLanguage() async throws {
         let delegate = AppDelegate()
         let broken = ShotnixHealthSnapshot(
-            screenRecordingGranted: false, nativeShortcutsEnabled: true, updatesConfigured: false,
+            screenRecordingGranted: false, nativeShortcutsEnabled: true,
             autoSavePath: "/nonexistent", autoSaveWritable: false,
             configuredShortcutCount: 5, expectedShortcutCount: 7, optionalUnassignedShortcutCount: 3,
             version: "0.24.1", build: "62"
         )
         let healthy = ShotnixHealthSnapshot(
-            screenRecordingGranted: true, nativeShortcutsEnabled: false, updatesConfigured: true,
+            screenRecordingGranted: true, nativeShortcutsEnabled: false,
             autoSavePath: "/tmp", autoSaveWritable: true,
             configuredShortcutCount: 7, expectedShortcutCount: 7, optionalUnassignedShortcutCount: 3,
             version: "0.24.1", build: "62"
@@ -234,7 +234,7 @@ final class LocalizedLayoutTests: XCTestCase {
                 let view = ShotnixCommandCenterView(
                     sections: delegate.commandCenterSections(screenCount: 2),
                     healthRows: ShotnixHealthModel.rows(snapshot: snapshot),
-                    healthActions: [.screenRecording: {}, .nativeShortcuts: {}, .updates: {}, .autoSave: {}, .shortcuts: {}],
+                    healthActions: [.screenRecording: {}, .nativeShortcuts: {}, .autoSave: {}, .shortcuts: {}],
                     dismiss: {}
                 )
                 let size = NSSize(width: ShotnixMenuMetrics.commandCenterWidth, height: 620)

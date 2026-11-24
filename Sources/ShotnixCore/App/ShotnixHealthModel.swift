@@ -4,7 +4,6 @@ import KeyboardShortcuts
 enum ShotnixHealthKind: String, CaseIterable {
     case screenRecording
     case nativeShortcuts
-    case updates
     case autoSave
     case shortcuts
     case version
@@ -38,7 +37,6 @@ struct ShotnixHealthRow: Identifiable, Equatable {
 struct ShotnixHealthSnapshot: Equatable {
     let screenRecordingGranted: Bool
     let nativeShortcutsEnabled: Bool
-    let updatesConfigured: Bool
     let autoSavePath: String
     let autoSaveWritable: Bool
     let configuredShortcutCount: Int
@@ -47,12 +45,11 @@ struct ShotnixHealthSnapshot: Equatable {
     let version: String
     let build: String
 
-    static func live(updatesConfigured: Bool = AppUpdateConfiguration.current != nil) -> ShotnixHealthSnapshot {
+    static func live() -> ShotnixHealthSnapshot {
         let autoSavePath = Settings.autoSaveLocation
         return ShotnixHealthSnapshot(
             screenRecordingGranted: PermissionsManager.hasScreenRecordingPermission,
             nativeShortcutsEnabled: NativeShortcutManager.nativeShortcutsEnabled,
-            updatesConfigured: updatesConfigured,
             autoSavePath: autoSavePath,
             autoSaveWritable: isWritableAutoSavePath(autoSavePath),
             configuredShortcutCount: ShotnixShortcut.requiredConfiguredCount(),
@@ -78,7 +75,6 @@ enum ShotnixHealthModel {
         [
             screenRecordingRow(snapshot),
             nativeShortcutsRow(snapshot),
-            updatesRow(snapshot),
             autoSaveRow(snapshot),
             shortcutsRow(snapshot),
             versionRow(snapshot)
@@ -111,17 +107,6 @@ enum ShotnixHealthModel {
             symbolName: snapshot.nativeShortcutsEnabled ? "keyboard.badge.exclamationmark" : "keyboard",
             state: snapshot.nativeShortcutsEnabled ? .warning : .ok,
             actionTitle: snapshot.nativeShortcutsEnabled ? L("Fix") : nil
-        )
-    }
-
-    private static func updatesRow(_ snapshot: ShotnixHealthSnapshot) -> ShotnixHealthRow {
-        ShotnixHealthRow(
-            kind: .updates,
-            title: L("Updates"),
-            detail: snapshot.updatesConfigured ? L("Enabled") : L("Disabled"),
-            symbolName: snapshot.updatesConfigured ? "arrow.triangle.2.circlepath.circle" : "arrow.triangle.2.circlepath.circle.fill",
-            state: snapshot.updatesConfigured ? .ok : .warning,
-            actionTitle: snapshot.updatesConfigured ? L("Check") : nil
         )
     }
 

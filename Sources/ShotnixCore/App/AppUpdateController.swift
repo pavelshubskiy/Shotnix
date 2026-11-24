@@ -42,14 +42,6 @@ final class AppUpdateController: NSObject, SPUUpdaterDelegate {
     }
 
     private let quietInstaller = QuietUpdateInstaller()
-
-    var canCheckForUpdates: Bool {
-        updaterController?.updater.canCheckForUpdates ?? false
-    }
-
-    func checkForUpdates(_ sender: Any?) {
-        updaterController?.checkForUpdates(sender)
-    }
 }
 
 /// Holds a downloaded update until nothing would notice Shotnix quitting and

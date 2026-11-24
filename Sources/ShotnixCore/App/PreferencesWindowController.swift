@@ -1080,11 +1080,6 @@ struct AboutSettingsView: View {
 
                 Spacer(minLength: 12)
 
-                Button(L("Check for Updates")) {
-                    (NSApp.delegate as? AppDelegate)?.checkForUpdates(nil)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)

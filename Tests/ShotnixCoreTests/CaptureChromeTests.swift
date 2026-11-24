@@ -74,7 +74,7 @@ final class CaptureChromeTests: XCTestCase {
         let capacity = QuickAccessStackLayout.capacity(visibleFrame: visible, cardHeight: card.height)
         XCTAssertEqual(capacity, 3, "only three cards fit — the fourth used to slide under the menu bar")
         for slot in 0..<QuickAccessStackLayout.maxCards {
-            let origin = QuickAccessStackLayout.origin(slot: slot, visibleFrame: visible, cardSize: card, onLeft: true)
+            let origin = QuickAccessStackLayout.origin(slot: slot, visibleFrame: visible, cardSize: card)
             let frame = CGRect(origin: origin, size: card)
             XCTAssertTrue(visible.contains(frame), "slot \(slot) at \(frame) leaves \(visible)")
         }
@@ -84,12 +84,12 @@ final class CaptureChromeTests: XCTestCase {
         let visible = CGRect(x: 1440, y: 30, width: 2560, height: 1385)
         let card = CGSize(width: 240, height: 152)
         XCTAssertEqual(QuickAccessStackLayout.capacity(visibleFrame: visible, cardHeight: card.height), 5)
-        let frames = (0..<5).map { CGRect(origin: QuickAccessStackLayout.origin(slot: $0, visibleFrame: visible, cardSize: card, onLeft: false), size: card) }
+        let frames = (0..<5).map { CGRect(origin: QuickAccessStackLayout.origin(slot: $0, visibleFrame: visible, cardSize: card), size: card) }
         for (lower, upper) in zip(frames, frames.dropFirst()) {
             XCTAssertFalse(lower.intersects(upper))
             XCTAssertEqual(upper.minY - lower.maxY, QuickAccessStackLayout.gap, accuracy: 0.01)
         }
-        XCTAssertEqual(frames[0].maxX, visible.maxX - QuickAccessStackLayout.sideMargin, accuracy: 0.01)
+        XCTAssertEqual(frames[0].minX, visible.minX + QuickAccessStackLayout.sideMargin, accuracy: 0.01)
     }
 
     // MARK: Close Window (⌘W)

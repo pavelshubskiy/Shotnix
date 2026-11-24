@@ -108,7 +108,7 @@ final class CaptureEngine {
             guard let self else { return }
             // Read before releasing the selection window.
             let frozen = self.areaSelectionWindow?.selectedFrozenScreen
-            let overlayAnchor = self.areaSelectionWindow?.selectionEndPoint
+            let overlayAnchor = self.areaSelectionWindow?.selectionEndPoint ?? NSEvent.mouseLocation
             self.areaSelectionWindow = nil
             guard let rect else {
                 self.restoreDesktopIconsIfNeeded(hiddenByCapture)
@@ -143,9 +143,10 @@ final class CaptureEngine {
                 guard let self else { return }
                 self.countdownWindow = nil
                 guard finished else { return }
+                let overlayAnchor = NSEvent.mouseLocation
                 Task {
                     let hiddenByCapture = await self.hideDesktopIconsForCaptureIfNeeded()
-                    await self.captureRect(rect, on: screen, type: .area, historyManager: historyManager)
+                    await self.captureRect(rect, on: screen, type: .area, historyManager: historyManager, overlayAnchor: overlayAnchor)
                     self.restoreDesktopIconsIfNeeded(hiddenByCapture)
                 }
             }
@@ -168,13 +169,14 @@ final class CaptureEngine {
             // Read before releasing the selection window — the clicked
             // window's ID enables the clean isolated-window capture path.
             let windowID = self.areaSelectionWindow?.selectedWindowID
+            let overlayAnchor = self.areaSelectionWindow?.selectionEndPoint ?? NSEvent.mouseLocation
             self.areaSelectionWindow = nil
             guard let rect else {
                 self.restoreDesktopIconsIfNeeded(hiddenByCapture)
                 return
             }
             Task {
-                await self.captureWindow(windowID: windowID, fallbackRect: rect, on: screen, historyManager: historyManager)
+                await self.captureWindow(windowID: windowID, fallbackRect: rect, on: screen, historyManager: historyManager, overlayAnchor: overlayAnchor)
                 self.restoreDesktopIconsIfNeeded(hiddenByCapture)
             }
         }
@@ -186,13 +188,13 @@ final class CaptureEngine {
     /// optionally composited over a drawn shadow with transparent padding.
     /// Falls back to the display-region crop when the window can't be
     /// resolved or on macOS 13.
-    private func captureWindow(windowID: CGWindowID?, fallbackRect: CGRect, on screen: NSScreen, historyManager: HistoryManager) async {
+    private func captureWindow(windowID: CGWindowID?, fallbackRect: CGRect, on screen: NSScreen, historyManager: HistoryManager, overlayAnchor: CGPoint) async {
         if #available(macOS 14.0, *), let windowID,
            let image = await captureIsolatedWindowImage(windowID: windowID, expectedSize: fallbackRect.size) {
-            finishCapture(image: image, rect: fallbackRect, type: .window, historyManager: historyManager, on: screen)
+            finishCapture(image: image, rect: fallbackRect, type: .window, historyManager: historyManager, on: screen, overlayAnchor: overlayAnchor)
             return
         }
-        await captureRect(fallbackRect, on: screen, type: .window, historyManager: historyManager)
+        await captureRect(fallbackRect, on: screen, type: .window, historyManager: historyManager, overlayAnchor: overlayAnchor)
     }
 
     @available(macOS 14.0, *)
@@ -280,10 +282,11 @@ final class CaptureEngine {
         // Instant, always — a hotkey capture must never open a modal chooser.
         // On multi-monitor setups the shot is the display the user is working
         // on (mouse location); All Displays lives as its own menu action.
-        let screen = screenUnderMouse() ?? NSScreen.main ?? screens[0]
+        let overlayAnchor = NSEvent.mouseLocation
+        let screen = screens.first { NSMouseInRect(overlayAnchor, $0.frame, false) } ?? NSScreen.main ?? screens[0]
         let hiddenByCapture = await hideDesktopIconsForCaptureIfNeeded()
         defer { restoreDesktopIconsIfNeeded(hiddenByCapture) }
-        await captureRect(screen.frame, on: screen, type: .fullscreen, historyManager: historyManager)
+        await captureRect(screen.frame, on: screen, type: .fullscreen, historyManager: historyManager, overlayAnchor: overlayAnchor)
     }
 
     /// Captures every connected display, one image per screen, each through
@@ -292,10 +295,11 @@ final class CaptureEngine {
         guard PermissionsManager.hasScreenRecordingPermission else {
             PermissionsManager.showPermissionDeniedAlert(); return
         }
+        let overlayAnchor = NSEvent.mouseLocation
         let hiddenByCapture = await hideDesktopIconsForCaptureIfNeeded()
         defer { restoreDesktopIconsIfNeeded(hiddenByCapture) }
         for (index, screen) in NSScreen.screens.enumerated() {
-            await captureRect(screen.frame, on: screen, type: .fullscreen, historyManager: historyManager, playSound: index == 0)
+            await captureRect(screen.frame, on: screen, type: .fullscreen, historyManager: historyManager, playSound: index == 0, overlayAnchor: overlayAnchor)
         }
     }
 
@@ -671,9 +675,10 @@ final class CaptureEngine {
         guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(rect) }) ?? NSScreen.main else {
             await startAreaCapture(historyManager: historyManager); return
         }
+        let overlayAnchor = NSEvent.mouseLocation
         let hiddenByCapture = await hideDesktopIconsForCaptureIfNeeded()
         defer { restoreDesktopIconsIfNeeded(hiddenByCapture) }
-        await captureRect(rect, on: screen, type: .area, historyManager: historyManager)
+        await captureRect(rect, on: screen, type: .area, historyManager: historyManager, overlayAnchor: overlayAnchor)
     }
 
     // MARK: – Scrolling Capture
@@ -696,8 +701,8 @@ final class CaptureEngine {
             guard let self else { return }
             self.scrollingCapture = nil
             switch outcome {
-            case .captured(let image, let rect, let screen, let note):
-                self.finishCapture(image: image, rect: rect, type: .scrolling, historyManager: historyManager, on: screen)
+            case .captured(let image, let rect, let screen, let overlayAnchor, let note):
+                self.finishCapture(image: image, rect: rect, type: .scrolling, historyManager: historyManager, on: screen, overlayAnchor: overlayAnchor)
                 if let note {
                     ToastWindow.show(message: note, duration: 4, on: screen)
                 }
@@ -804,7 +809,7 @@ final class CaptureEngine {
 
     /// `frozen`: the still the selection was made on, when the screen was
     /// frozen for it. The shot is then cut from it instead of captured now.
-    func captureRect(_ rect: CGRect, on screen: NSScreen, type: CaptureType = .area, historyManager: HistoryManager, playSound: Bool = true, frozen: FrozenScreen? = nil, overlayAnchor: CGPoint? = nil) async {
+    func captureRect(_ rect: CGRect, on screen: NSScreen, type: CaptureType = .area, historyManager: HistoryManager, playSound: Bool = true, frozen: FrozenScreen? = nil, overlayAnchor: CGPoint) async {
         let clamped = rect.intersection(screen.frame)
         let rect = clamped.isNull ? rect : clamped
         let started = CFAbsoluteTimeGetCurrent()
@@ -820,7 +825,7 @@ final class CaptureEngine {
 
     /// Shared post-capture pipeline: sound, haptic, history, auto-actions,
     /// overlay — and the first successful capture completes onboarding.
-    private func finishCapture(image: NSImage, rect: CGRect, type: CaptureType, historyManager: HistoryManager, playSound: Bool = true, on screen: NSScreen? = nil, overlayAnchor: CGPoint? = nil) {
+    private func finishCapture(image: NSImage, rect: CGRect, type: CaptureType, historyManager: HistoryManager, playSound: Bool = true, on screen: NSScreen? = nil, overlayAnchor: CGPoint) {
         if playSound { playCaptureSound() }
         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
         let item = historyManager.add(image: image, rect: rect, type: type)

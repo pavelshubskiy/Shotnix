@@ -9,7 +9,7 @@ import Carbon.HIToolbox
 final class ScrollingCaptureController: NSObject {
 
     enum Outcome {
-        case captured(image: NSImage, rect: CGRect, screen: NSScreen, note: String?)
+        case captured(image: NSImage, rect: CGRect, screen: NSScreen, overlayAnchor: CGPoint, note: String?)
         case cancelled
         case failed(message: String, screen: NSScreen?)
     }
@@ -150,6 +150,7 @@ final class ScrollingCaptureController: NSObject {
 
     func finish(note: String? = nil) {
         guard phase == .scrolling else { return }
+        let overlayAnchor = NSEvent.mouseLocation
         phase = .finishing
         removeEscape()
         hud?.showFinishing()
@@ -169,7 +170,7 @@ final class ScrollingCaptureController: NSObject {
             // capture exports at 144 dpi and pastes at its on-screen size.
             let logicalSize = NSSize(width: CGFloat(stitched.width) / self.pixelScale, height: CGFloat(stitched.height) / self.pixelScale)
             let image = CaptureEngine.nsImage(from: stitched, logicalSize: logicalSize)
-            self.complete(.captured(image: image, rect: self.captureRect, screen: screen, note: note))
+            self.complete(.captured(image: image, rect: self.captureRect, screen: screen, overlayAnchor: overlayAnchor, note: note))
         }
     }
 

@@ -725,7 +725,7 @@ final class SelectionOverlayView: NSView {
             if let r = highlightedWindowRect {
                 // Convert to global AppKit coordinates — view-local rects are
                 // only correct on the primary display (screen origin 0,0).
-                selectionHandler?(convertToScreen(r), highlightedWindowID, nil)
+                selectionHandler?(convertToScreen(r), highlightedWindowID, screenPoint(for: event))
             }
             return
         }

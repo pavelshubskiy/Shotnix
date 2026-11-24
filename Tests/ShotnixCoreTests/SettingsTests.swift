@@ -23,7 +23,6 @@ final class SettingsTests: XCTestCase {
 
     func testDefaultsMatchFreshInstallBehavior() {
         XCTAssertEqual(Settings.overlayTimeout, 6)
-        XCTAssertTrue(Settings.overlayOnLeft)
         XCTAssertTrue(Settings.playSounds)
         XCTAssertTrue(Settings.afterCaptureShowOverlay)
         XCTAssertTrue(Settings.afterCaptureCopyToClipboard)

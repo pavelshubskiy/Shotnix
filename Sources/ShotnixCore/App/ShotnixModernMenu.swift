@@ -49,6 +49,7 @@ final class ShotnixModernMenuPresenter {
         )
         let panel = ShotnixDetachedMenuPanel(contentViewController: controller)
         panel.styleMask = [.borderless, .nonactivatingPanel]
+        panel.appearance = ShotnixAppearance.current.appearance
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.level = .floating
@@ -98,6 +99,7 @@ final class ShotnixModernMenuPresenter {
         relativeTo button: NSStatusBarButton
     ) {
         let (popover, controller) = commandCenterInfrastructure()
+        popover.appearance = ShotnixAppearance.current.appearance
         controller.rootView = ShotnixCommandCenterView(
             sections: sections,
             healthRows: healthRows,
@@ -157,6 +159,7 @@ final class ShotnixModernMenuPresenter {
 
     func showActionMenu(sections: [ShotnixMenuSection], at event: NSEvent, in view: NSView) {
         let popover = makePopover(width: ShotnixMenuMetrics.actionMenuWidth)
+        popover.appearance = ShotnixAppearance.current.appearance
         let controller = NSHostingController(
             rootView: ShotnixActionMenuView(
                 sections: sections,

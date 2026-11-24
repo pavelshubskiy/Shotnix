@@ -69,15 +69,6 @@ enum Settings {
         set { defaults.set(newValue, forKey: "overlayTimeout") }
     }
 
-    /// true = show overlay on the left side (default), false = right side
-    static var overlayOnLeft: Bool {
-        get {
-            if defaults.object(forKey: "overlayOnLeft") == nil { return true }
-            return defaults.bool(forKey: "overlayOnLeft")
-        }
-        set { defaults.set(newValue, forKey: "overlayOnLeft") }
-    }
-
     // MARK: – General
 
     static var playSounds: Bool {
@@ -179,13 +170,12 @@ enum Settings {
         set { defaults.set(newValue, forKey: "windowCaptureShadow") }
     }
 
-    /// Countdown length for Timed Capture. Clamped to the offered choices.
+    /// The countdown from older versions, for the optional Timed Capture shortcut.
     static var timedCaptureDelaySeconds: Int {
         get {
             let v = defaults.integer(forKey: "timedCaptureDelaySeconds")
             return [3, 5, 10].contains(v) ? v : 5
         }
-        set { defaults.set([3, 5, 10].contains(newValue) ? newValue : 5, forKey: "timedCaptureDelaySeconds") }
     }
 
     static var screenshotFormat: String {

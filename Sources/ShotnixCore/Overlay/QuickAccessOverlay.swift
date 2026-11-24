@@ -3,7 +3,7 @@ import CoreImage
 import QuartzCore
 
 /// Post-capture floating thumbnail with quick action buttons.
-/// Area captures can anchor it to the pointer; other captures use the corner stack.
+/// New screenshot previews open near the pointer. Older overlapping cards stack at the side.
 @MainActor
 final class QuickAccessOverlay {
 
@@ -72,8 +72,8 @@ enum QuickAccessStackLayout {
     }
 
     /// Slot 0 is the anchor at the bottom (the oldest card).
-    static func origin(slot: Int, visibleFrame: CGRect, cardSize: CGSize, onLeft: Bool) -> CGPoint {
-        let x = onLeft ? visibleFrame.minX + sideMargin : visibleFrame.maxX - cardSize.width - sideMargin
+    static func origin(slot: Int, visibleFrame: CGRect, cardSize: CGSize) -> CGPoint {
+        let x = visibleFrame.minX + sideMargin
         let y = visibleFrame.minY + bottomMargin + CGFloat(slot) * (cardSize.height + gap)
         let highest = visibleFrame.maxY - cardSize.height - topMargin
         return CGPoint(x: x, y: max(visibleFrame.minY, min(y, highest)))
@@ -447,7 +447,7 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
     /// the pile, and cards drop down a slot when one below them leaves.
     private func slotOrigin(index: Int) -> NSPoint? {
         guard let screen = captureScreen else { return nil }
-        return QuickAccessStackLayout.origin(slot: index, visibleFrame: screen.visibleFrame, cardSize: frame.size, onLeft: Settings.overlayOnLeft)
+        return QuickAccessStackLayout.origin(slot: index, visibleFrame: screen.visibleFrame, cardSize: frame.size)
     }
 
     /// How many cards this window's screen can stack without the column

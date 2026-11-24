@@ -236,7 +236,7 @@ final class ScrollingCaptureTests: XCTestCase {
         controller.finishFromShortcut()
         await fulfillment(of: [finished], timeout: 5)
 
-        guard case .captured(let image, let rect, _, _) = outcome else {
+        guard case .captured(let image, let rect, _, _, _) = outcome else {
             return XCTFail("expected a capture, got \(String(describing: outcome))")
         }
         XCTAssertEqual(rect, selection)

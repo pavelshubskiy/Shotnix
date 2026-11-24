@@ -135,6 +135,12 @@ final class AreaSelectionWindow: NSObject {
             overlays.append(overlay)
         }
 
+        guard !overlays.isEmpty else { return }
+        NSCursor.crosshair.push()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(refreshIdleCursor),
+            name: NSApplication.didBecomeActiveNotification, object: NSApp
+        )
         focusFirstOverlay()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.focusFirstOverlay()
@@ -149,15 +155,12 @@ final class AreaSelectionWindow: NSObject {
             if event.keyCode == 53 { self.cancel(); return nil }
             return event
         }
-
-        NSCursor.crosshair.push()
-        // push() alone can be overridden by the cursor rect that was active
-        // under the mouse when the overlay appeared; set() applies it NOW.
-        NSCursor.crosshair.set()
     }
+
     private func focusFirstOverlay() {
         guard !overlays.isEmpty, let first = overlays.first else { return }
         guard first.isVisible else { return }
+        defer { refreshIdleCursor() }
         // A selection being adjusted on another display keeps the keyboard.
         guard !overlays.contains(where: { $0.isKeyWindow && $0 !== first }) else { return }
         NSApp.activate(ignoringOtherApps: true)
@@ -166,12 +169,20 @@ final class AreaSelectionWindow: NSObject {
         first.makeFirstResponder(first.selectionView)
     }
 
+    @objc private func refreshIdleCursor() {
+        guard NSApp.isActive else { return }
+        let pointer = NSEvent.mouseLocation
+        // Activation can restore the previous app's cursor after the initial
+        // push. Reapply it without waiting for the pointer to move.
+        guard overlays.contains(where: { $0.isVisible && $0.isIdle && $0.frame.contains(pointer) }) else { return }
+        NSCursor.crosshair.set()
+    }
+
     private func finish(rect: CGRect, screen: NSScreen, index: Int) {
         // Only a display that is showing its still is captured from it.
         if freezesScreen, overlays.indices.contains(index), overlays[index].showsFrozenScreen, stills.indices.contains(index) {
             selectedFrozenScreen = stills[index]
         }
-        NSCursor.pop()
         tearDown(more: leadsToAnotherWindow)
         if #available(macOS 14.0, *) {
             // SCK captures exclude Shotnix's own windows, so there's no need
@@ -190,8 +201,6 @@ final class AreaSelectionWindow: NSObject {
     }
 
     func cancel() {
-        // Only a selection that got as far as its overlays pushed a cursor.
-        if !overlays.isEmpty { NSCursor.pop() }
         tearDown(more: false)
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         completion(nil, screen)
@@ -200,6 +209,8 @@ final class AreaSelectionWindow: NSObject {
     private func tearDown(more: Bool) {
         isOver = true
         if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
+        NotificationCenter.default.removeObserver(self, name: NSApplication.didBecomeActiveNotification, object: NSApp)
+        if !overlays.isEmpty { NSCursor.pop() }
         // Before the overlays go: with them gone and Shotnix still the
         // active app, macOS would bring an editor left open in the
         // background in front of what's being captured.
@@ -255,6 +266,7 @@ private final class SelectionOverlayWindow: NSWindow {
     var selectionBeganHandler: (() -> Void)?
 
     var hasAdjustableSelection: Bool { overlayView.stage == .adjusting }
+    var isIdle: Bool { overlayView.stage == .idle }
 
     /// Draws the selection and takes its keys.
     var selectionView: NSView { overlayView }

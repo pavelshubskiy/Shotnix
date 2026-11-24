@@ -901,6 +901,9 @@
   "Recovered your interrupted recording “%@”. Click to open it." : {
     "ru" : "Ваша прерванная запись «%@» восстановлена. Нажмите, чтобы открыть ее."
   },
+  "Recovered your interrupted recording “%@”. Click to show it in Finder." : {
+    "ru" : "Прерванная запись «%@» восстановлена. Нажмите, чтобы показать её в Finder."
+  },
   "Rectangle" : {
     "ru" : "Прямоугольник"
   },
@@ -1099,6 +1102,9 @@
   "Show Editor" : {
     "ru" : "Показать редактор"
   },
+  "Show Last Recording in Finder" : {
+    "ru" : "Показать последнюю запись в Finder"
+  },
   "Show Quick Access Overlay" : {
     "ru" : "Показывать миниатюру быстрого доступа"
   },
@@ -1153,6 +1159,9 @@
   "Step %lld" : {
     "ru" : "Шаг %lld"
   },
+  "Stop a recording with %@ from any app — plain Esc stays with the app you're recording." : {
+    "ru" : "Остановить запись можно сочетанием %@ из любого приложения. Одиночное нажатие Esc обрабатывает приложение, которое вы записываете."
+  },
   "Storage" : {
     "ru" : "Хранилище"
   },
@@ -1194,6 +1203,9 @@
   },
   "Text: %@" : {
     "ru" : "Текст: %@"
+  },
+  "The countdown gives you a moment after pressing Record; Esc cancels it." : {
+    "ru" : "После нажатия кнопки записи начинается обратный отсчёт. Esc отменяет его."
   },
   "The full report is on your clipboard. Paste it into the email." : {
     "ru" : "Полный отчет скопирован в буфер обмена. Вставьте его в письмо."

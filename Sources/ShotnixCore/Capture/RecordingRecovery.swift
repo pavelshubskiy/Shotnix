@@ -1,24 +1,17 @@
 import AVFoundation
 import Foundation
 
-/// A note left on disk while a recording runs. If Shotnix dies before it is
-/// cleared (crash, force quit, power loss), the next launch finds it. The
-/// movie itself survives — it's written in fragments — so recovery only
-/// has to reattach the camera and point the user at the file.
+/// A note left while a recording runs. Older notes can include additional fields.
 struct RecordingRecoveryNote: Codable, Equatable {
     var videoPath: String
     var cameraPath: String?
-    /// Camera time = screen time − offset, once both first frames arrived.
-    var cameraOffset: Double?
-    var fps: Int
-    var nativeCursorVisible: Bool
-    var audioTracks: [VideoAudioKind]?
-    var startedAt: Date
 }
 
 enum RecordingRecovery {
+    nonisolated(unsafe) static var overrideRoot: URL?
+
     static func noteURL(baseDirectory: URL? = nil) -> URL {
-        (baseDirectory ?? VideoStorageLocation.root)
+        (baseDirectory ?? overrideRoot ?? URL.applicationSupportDirectory)
             .appendingPathComponent("Shotnix", isDirectory: true)
             .appendingPathComponent("InterruptedRecording.json")
     }
@@ -49,8 +42,7 @@ enum RecordingRecovery {
         clear(baseDirectory: baseDirectory)
     }
 
-    /// Launch-time check: returns the interrupted recording when it plays,
-    /// with its camera reattached; an unplayable leftover is deleted.
+    /// The screen movie is fragmented, so it can still play after a crash.
     static func recoverInterruptedRecording(baseDirectory: URL? = nil) async -> URL? {
         guard let note = load(baseDirectory: baseDirectory) else { return nil }
         clear(baseDirectory: baseDirectory)
@@ -61,33 +53,9 @@ enum RecordingRecovery {
             if let camera { try? FileManager.default.removeItem(at: camera) }
             return nil
         }
-        // Finishing normally writes the sidecar and clears the note; a
-        // sidecar here means it was written after all.
-        guard VideoDemoSidecarStore.load(for: video, baseDirectory: baseDirectory) == nil else { return video }
-
-        let size = await videoSize(of: video) ?? .zero
-        var metadata = VideoDemoRecordingMetadata(
-            videoURLPath: video.path,
-            createdAt: note.startedAt,
-            duration: duration,
-            sourceWidth: Double(max(size.width, 1)),
-            sourceHeight: Double(max(size.height, 1)),
-            fps: note.fps,
-            nativeCursorVisible: note.nativeCursorVisible,
-            cursorSamples: [],
-            clickEvents: []
-        )
-        // The pointer path lived in memory: nothing to draw.
-        metadata.renderCursor = false
-        metadata.audioTracks = note.audioTracks
-        if let camera, let offset = note.cameraOffset,
-           await playableDuration(of: camera) != nil,
-           let cameraSize = await videoSize(of: camera) {
-            metadata.webcam = VideoWebcamRecording(path: camera.path, offset: offset, width: Double(cameraSize.width), height: Double(cameraSize.height))
-        } else if let camera {
+        if let camera, await playableDuration(of: camera) == nil {
             try? FileManager.default.removeItem(at: camera)
         }
-        VideoDemoSidecarStore.save(metadata, for: video, baseDirectory: baseDirectory)
         return video
     }
 
@@ -98,12 +66,5 @@ enum RecordingRecovery {
         guard let playable = try? await asset.load(.isPlayable), playable,
               let duration = try? await asset.load(.duration), duration.isNumeric else { return nil }
         return duration.seconds
-    }
-
-    private static func videoSize(of url: URL) async -> CGSize? {
-        let asset = AVURLAsset(url: url)
-        guard let track = try? await asset.loadTracks(withMediaType: .video).first,
-              let size = try? await track.load(.naturalSize) else { return nil }
-        return size
     }
 }

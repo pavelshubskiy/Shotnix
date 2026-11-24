@@ -94,7 +94,6 @@ final class CaptureEngine {
         ShareableContentStore.installDisplayChangeObserver()
         // A take finishing while the next one is set up doesn't open its
         // editor over the new recording.
-        recordingEngine.nextTakeInProgress = { [weak self] in self?.recordingSetupActive ?? false }
     }
 
     // MARK: – Area Capture
@@ -574,7 +573,6 @@ final class CaptureEngine {
             let owner = window?.owningApplication.flatMap { NSRunningApplication(processIdentifier: $0.processID) }
             if let window { RecordingFocus.raise(window) }
             RecordingFocus.returnFocus(to: owner)
-            self.recordingEngine.startWillFollow()
             Task {
                 if let window {
                     await self.recordingEngine.startRecording(window: window, on: screen)
@@ -2013,7 +2011,7 @@ final class RecordingControlsWindow: NSWindow {
     private static var openWindows: [RecordingControlsWindow] = []
     private static let barHeight: CGFloat = 56
     private static let expandedHeight: CGFloat = 92
-    private static let panelWidth: CGFloat = 808
+    private static let panelWidth: CGFloat = 762
     private static let chromeInset: CGFloat = 8
     private static let qualityWidth: CGFloat = 72
     private static let qualityFont = NSFont.systemFont(ofSize: 12, weight: .semibold)
@@ -2044,15 +2042,11 @@ final class RecordingControlsWindow: NSWindow {
     private var didClose = false
     /// Record was pressed: the camera stays on for the recording.
     private var keepsCameraAfterClose = false
-    /// Waits for Accessibility access after the ⌘ button asked for it.
-    private var accessibilityPoll: Timer?
-    private var accessibilityPollTicks = 0
 
     private let systemAudioButton = RecordingToggleButton(symbol: "speaker.wave.2.fill", title: L("System audio"))
     private let microphoneButton = RecordingToggleButton(symbol: "mic.fill", title: L("Microphone"), activeTint: .systemGreen)
     private let cursorButton = RecordingToggleButton(symbol: "cursorarrow.rays", title: L("Cursor"))
     private let cameraButton = RecordingToggleButton(symbol: "video.fill", title: L("Camera"), activeTint: .systemBlue)
-    private let keysButton = RecordingToggleButton(symbol: "command", title: L("Show keyboard shortcuts"))
     private let qualityPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let fpsPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let sizeLabel = NSTextField(labelWithString: "")
@@ -2133,7 +2127,6 @@ final class RecordingControlsWindow: NSWindow {
         scheduleDeferredMicrophoneMonitor()
         if Settings.recordingCamera { startCameraPreview() }
         // Asked for shortcuts earlier but access hasn't arrived yet.
-        if Settings.recordingKeystrokes, !VideoKeystrokeFormatter.isAllowed { waitForAccessibility() }
     }
 
     private func startCameraPreview() {
@@ -2221,7 +2214,6 @@ final class RecordingControlsWindow: NSWindow {
         bar.addSubview(divider(x: 326, height: 22))
         bar.addSubview(divider(x: 362, height: 22))
         bar.addSubview(divider(x: 408, height: 22))
-        bar.addSubview(divider(x: 454, height: 22))
 
         systemAudioButton.frame = NSRect(x: 238, y: 9, width: 40, height: 38)
         microphoneButton.frame = NSRect(x: 284, y: 9, width: 40, height: 38)
@@ -2230,8 +2222,7 @@ final class RecordingControlsWindow: NSWindow {
         bar.addSubview(microphoneLevelMeter)
         cursorButton.frame = NSRect(x: 366, y: 9, width: 40, height: 38)
         cameraButton.frame = NSRect(x: 412, y: 9, width: 40, height: 38)
-        keysButton.frame = NSRect(x: 458, y: 9, width: 40, height: 38)
-        for button in [systemAudioButton, microphoneButton, cursorButton, cameraButton, keysButton] {
+        for button in [systemAudioButton, microphoneButton, cursorButton, cameraButton] {
             button.target = self
             button.action = #selector(toggleChanged(_:))
             bar.addSubview(button)
@@ -2240,20 +2231,20 @@ final class RecordingControlsWindow: NSWindow {
         // Right of the quality menu, everything moves over by what a longer
         // quality name needs (none in English).
         let extra = barWidth - Self.panelWidth
-        let settingsGroup = segmentContainer(frame: NSRect(x: 510, y: 8, width: 166 + extra, height: 40))
+        let settingsGroup = segmentContainer(frame: NSRect(x: 464, y: 8, width: 166 + extra, height: 40))
         bar.addSubview(settingsGroup)
-        bar.addSubview(divider(x: 594 + extra, height: 22))
+        bar.addSubview(divider(x: 548 + extra, height: 22))
 
         let qualities: [RecordingQuality] = [.balanced, .high, .max]
         configurePopup(qualityPopup, items: qualities.map { ($0.displayName, $0.rawValue) })
-        qualityPopup.frame = NSRect(x: 516, y: 18, width: Self.qualityWidth + extra, height: 28)
+        qualityPopup.frame = NSRect(x: 470, y: 18, width: Self.qualityWidth + extra, height: 28)
         qualityPopup.target = self
         qualityPopup.action = #selector(qualityChanged)
         qualityPopup.setAccessibilityLabel(L("Quality"))
         bar.addSubview(qualityPopup)
 
         configurePopup(fpsPopup, items: [("30 fps", "30"), ("60 fps", "60")])
-        fpsPopup.frame = NSRect(x: 602 + extra, y: 18, width: 68, height: 28)
+        fpsPopup.frame = NSRect(x: 556 + extra, y: 18, width: 68, height: 28)
         fpsPopup.target = self
         fpsPopup.action = #selector(fpsChanged)
         fpsPopup.setAccessibilityLabel(L("Frame rate"))
@@ -2266,12 +2257,12 @@ final class RecordingControlsWindow: NSWindow {
         sizeLabel.toolTip = L("Estimated file size. Still screens take less.")
         bar.addSubview(sizeLabel)
 
-        optionsButton.frame = NSRect(x: 684 + extra, y: 9, width: 36, height: 38)
+        optionsButton.frame = NSRect(x: 638 + extra, y: 9, width: 36, height: 38)
         optionsButton.target = self
         optionsButton.action = #selector(optionsTapped)
         bar.addSubview(optionsButton)
 
-        recordButton.frame = NSRect(x: 728 + extra, y: 9, width: 38, height: 38)
+        recordButton.frame = NSRect(x: 682 + extra, y: 9, width: 38, height: 38)
         recordButton.target = self
         recordButton.action = #selector(recordTapped)
         // Return records, as the default button of the bar.
@@ -2280,13 +2271,13 @@ final class RecordingControlsWindow: NSWindow {
         bar.addSubview(recordButton)
 
         let cancelButton = RecordingActionButton(symbol: "xmark", title: L("Cancel"), tint: .secondaryLabelColor)
-        cancelButton.frame = NSRect(x: 768 + extra, y: 9, width: 32, height: 38)
+        cancelButton.frame = NSRect(x: 722 + extra, y: 9, width: 32, height: 38)
         cancelButton.target = self
         cancelButton.action = #selector(cancelTapped)
         bar.addSubview(cancelButton)
 
         let escHint = keyHint("esc")
-        escHint.frame = NSRect(x: 772 + extra, y: 3, width: 24, height: 12)
+        escHint.frame = NSRect(x: 726 + extra, y: 3, width: 24, height: 12)
         bar.addSubview(escHint)
 
         syncFromSettings()
@@ -2319,7 +2310,6 @@ final class RecordingControlsWindow: NSWindow {
         microphoneButton.isOn = Settings.recordingMicrophone
         cursorButton.isOn = Settings.recordingShowsCursor
         cameraButton.isOn = Settings.recordingCamera
-        keysButton.isOn = Settings.recordingKeystrokes && VideoKeystrokeFormatter.isAllowed
         selectItem(in: qualityPopup, representedObject: Settings.recordingQuality)
         selectItem(in: fpsPopup, representedObject: String(Settings.recordingFPS))
         reloadMicrophones()
@@ -2581,7 +2571,6 @@ final class RecordingControlsWindow: NSWindow {
             self.keyMonitor = nil
         }
         orderOut(nil)
-        stopWaitingForAccessibility()
         CameraCapture.shared.interruptionHandler = nil
         if !keepsCameraAfterClose { CameraCapture.shared.stop() }
         Self.openWindows.removeAll { $0 === self }
@@ -2612,51 +2601,10 @@ final class RecordingControlsWindow: NSWindow {
             } else {
                 CameraCapture.shared.stop()
             }
-        case keysButton:
-            if sender.isOn, !VideoKeystrokeFormatter.isAllowed {
-                // macOS asks once; the button switches on by itself the
-                // moment access is granted.
-                VideoKeystrokeFormatter.requestAccess()
-                sender.isOn = false
-                Settings.recordingKeystrokes = true
-                waitForAccessibility()
-                ToastWindow.show(message: L("Allow Shotnix in Accessibility — shortcuts turn on by themselves."), duration: 3.2)
-            } else {
-                Settings.recordingKeystrokes = sender.isOn
-                if !sender.isOn { stopWaitingForAccessibility() }
-            }
         default:
             break
         }
         updateSizeEstimate()
-    }
-
-    private func waitForAccessibility() {
-        stopWaitingForAccessibility()
-        accessibilityPollTicks = 0
-        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.checkAccessibility() }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        accessibilityPoll = timer
-    }
-
-    private func checkAccessibility() {
-        accessibilityPollTicks += 1
-        guard !didClose, accessibilityPollTicks <= 600 else {
-            stopWaitingForAccessibility()
-            return
-        }
-        guard VideoKeystrokeFormatter.isAllowed else { return }
-        stopWaitingForAccessibility()
-        guard Settings.recordingKeystrokes else { return }
-        keysButton.isOn = true
-        ToastWindow.show(message: L("Keyboard shortcuts are on"))
-    }
-
-    private func stopWaitingForAccessibility() {
-        accessibilityPoll?.invalidate()
-        accessibilityPoll = nil
     }
 
     @objc private func qualityChanged() {
@@ -2712,18 +2660,6 @@ final class RecordingControlsWindow: NSWindow {
             }
         }
 
-        menu.addItem(.separator())
-        let editable = NSMenuItem(title: L("Editable Cursor"), action: #selector(editableCursorToggled), keyEquivalent: "")
-        editable.target = self
-        editable.state = Settings.recordingEditableCursor ? .on : .off
-        editable.isEnabled = cursorButton.isOn
-        editable.toolTip = L("Records the pointer separately, so the editor can smooth it, resize it, and keep it crisp when zoomed.")
-        menu.addItem(editable)
-        let openEditor = NSMenuItem(title: L("Open Editor After Recording"), action: #selector(openEditorToggled), keyEquivalent: "")
-        openEditor.target = self
-        openEditor.state = Settings.openVideoEditorAfterRecording ? .on : .off
-        menu.addItem(openEditor)
-
         // A window recording shows neither the menu bar nor the desktop.
         if target != .window {
             menu.addItem(.separator())
@@ -2766,14 +2702,6 @@ final class RecordingControlsWindow: NSWindow {
         guard cameraButton.isOn else { return }
         CameraCapture.shared.stop()
         startCameraPreview()
-    }
-
-    @objc private func editableCursorToggled() {
-        Settings.recordingEditableCursor.toggle()
-    }
-
-    @objc private func openEditorToggled() {
-        Settings.openVideoEditorAfterRecording.toggle()
     }
 
     @objc private func hideMenuBarIconsToggled() {

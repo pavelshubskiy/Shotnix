@@ -64,41 +64,6 @@ final class VideoRecordingQualityTests: XCTestCase {
         }
     }
 
-    /// The exported file looks like the preview (no gamma lift).
-    func testExportColorsMatchThePreview() async throws {
-        VideoTestStorage.isolate()
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("export-colors-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: dir) }
-        let src = dir.appendingPathComponent("src.mp4")
-        try await VideoTestSupport.writeFakeRecording(to: src, size: CGSize(width: 1280, height: 720), seconds: 2, fps: 30)
-        for background in [VideoRGBA(0.5, 0.5, 0.5), VideoRGBA(0.2, 0.6, 0.9)] {
-            var project = VideoDemoProject.make(sourceURL: src, duration: 2, sourceSize: CGSize(width: 1280, height: 720))
-            project.cursor.visible = false
-            project.background = .color(background)
-            let out = dir.appendingPathComponent("out.mp4")
-            var settings = VideoExportSettings()
-            settings.resolution = .p720
-            settings.fps = 30
-            settings.endCard = false
-            try await VideoDemoExporter.export(project: project, destinationURL: out, settings: settings)
-            let exported = try await AVAssetImageGenerator(asset: AVURLAsset(url: out)).image(at: CMTime(seconds: 1, preferredTimescale: 600)).image
-            let plan = VideoDemoExporter.makePlan(project: project, sourceDuration: 2, recording: nil)
-            let ideal = VideoFrameRenderer().render(source: nil, timelineTime: 1, plan: plan, outputSize: CGSize(width: 1280, height: 720))
-            let corner = CGRect(x: 4, y: 4, width: 20, height: 20)
-            func average(_ image: CIImage) -> [Int] {
-                var px = [UInt8](repeating: 0, count: 4)
-                CIContext().render(image.applyingFilter("CIAreaAverage", parameters: [kCIInputExtentKey: CIVector(cgRect: corner)]), toBitmap: &px, rowBytes: 4, bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
-                return px.prefix(3).map(Int.init)
-            }
-            let got = average(CIImage(cgImage: exported))
-            let want = average(ideal)
-            for (a, b) in zip(got, want) {
-                XCTAssertLessThanOrEqual(abs(a - b), 3, "exported \(got), preview \(want)")
-            }
-        }
-    }
-
     func testCaptureRegionIsWholeEvenPixels() {
         let screen = CGRect(x: 0, y: 0, width: 1512, height: 982)
         // An odd, fractional selection on a 2x display.

@@ -33,7 +33,6 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(Settings.recordingFPS, 60)
         XCTAssertEqual(Settings.recordingQuality, "high")
         XCTAssertTrue(Settings.recordingShowsCursor)
-        XCTAssertTrue(Settings.openVideoEditorAfterRecording)
     }
 
     func testAnnotationEditorSettingsDefaultsAndClamping() {

@@ -19,9 +19,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Clicking the Dock icon (shown while an editor is open) restores a buried or minimized editor.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         if !hasVisibleWindows {
-            if VideoDemoEditorWindowController.hasOpenEditors {
-                VideoDemoEditorWindowController.bringOpenEditorsToFront()
-            }
             if AnnotationWindowController.hasOpenEditors {
                 AnnotationWindowController.bringOpenEditorsToFront()
             }
@@ -39,21 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    /// Videos dropped on the app (Finder "Open With", `open -a Shotnix`)
-    /// open straight in the video editor.
-    func application(_ application: NSApplication, open urls: [URL]) {
-        let videos = urls.filter { ["mp4", "mov", "m4v"].contains($0.pathExtension.lowercased()) }
-        for url in videos {
-            Settings.lastRecordingPath = url.path
-            VideoDemoEditorWindowController.open(videoURL: url)
-        }
-    }
-
-    /// Work that quitting would cut short (an export, a transcription) asks
-    /// first, then unsaved screenshot edits; a recording or other running work
-    /// wraps up before Shotnix quits. Running work asks before the editors do
-    /// because the editor review closes windows, which a later "Keep Working"
-    /// couldn't undo.
+    /// Reviews unsaved screenshot edits and lets an active recording finish.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard AppTermination.confirmQuit() else { return .terminateCancel }
         guard AnnotationWindowController.hasUnsavedChanges else {
@@ -93,36 +76,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Before the welcome window marks this install as launched.
         Settings.migrateCaptureSettingsIfNeeded()
         Settings.migrateRecordingFPSIfNeeded()
-        // Unfinished exports' working files, then old clipboard exports (in
-        // the background).
-        VideoExportFiles.removeLeftovers()
-        VideoDataCleanup.sweepAfterLaunch()
         updateController = AppUpdateController()
         captureEngine = CaptureEngine()
         captureEngine.recordingStateChangedHandler = { [weak self] in
             self?.recordingStateDidChange()
-        }
-        captureEngine.recordingFinishedHandler = { finished in
-            let url = finished.url
-            Settings.lastRecordingPath = url.path
-            let openEditor = {
-                DispatchQueue.main.async {
-                    guard FileManager.default.fileExists(atPath: url.path) else {
-                        // No editor after all: drop the foreground Stop took for it.
-                        ShotnixEditorActivation.releaseForeground()
-                        return
-                    }
-                    VideoDemoPostRecordingPanel.dismissActive()
-                    VideoDemoEditorWindowController.open(videoURL: url)
-                }
-            }
-            // Straight into the editor: no panel flashing on the way. The
-            // engine decided (and gave back its foreground hold if it won't).
-            if finished.opensEditor {
-                openEditor()
-            } else {
-                VideoDemoPostRecordingPanel.show(videoURL: url, on: finished.screen, openHandler: openEditor)
-            }
         }
         hotkeyManager = HotkeyManager()
         historyManager = HistoryManager()
@@ -192,9 +149,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let url = await RecordingRecovery.recoverInterruptedRecording() else { return }
             Settings.lastRecordingPath = url.path
             ToastWindow.show(
-                message: L("Recovered your interrupted recording “\(url.lastPathComponent)”. Click to open it."),
+                message: L("Recovered your interrupted recording “\(url.lastPathComponent)”. Click to show it in Finder."),
                 duration: 7,
-                action: { VideoDemoEditorWindowController.open(videoURL: url) }
+                action: { NSWorkspace.shared.activateFileViewerSelecting([url]) }
             )
         }
     }
@@ -375,12 +332,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)
 
-        // File menu: Close Window (⌘W) first, then the video editor's own
-        // section (Export, Save Subtitles, Recent Exports).
         let fileMenuItem = NSMenuItem()
         let fileMenu = NSMenu(title: L("File"))
         fileMenu.addItem(menuItem(L("Close Window"), action: #selector(closeKeyWindow(_:)), key: "w", modifiers: [.command]))
-        VideoEditorFileMenu.shared.addItems(to: fileMenu)
         fileMenuItem.submenu = fileMenu
         mainMenu.addItem(fileMenuItem)
 
@@ -390,8 +344,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // the app delegate instead of using plain nil-target standard selectors:
         // a matching menu item consumes its key equivalent even while disabled,
         // so nil-target items would starve the keyDown-based shortcuts in
-        // custom windows (annotation canvas ⌘Z/⌘C, quick access overlay ⌘C)
-        // and shadow the Timeline menu's ⌘Z. See the Edit menu routing section.
+        // custom windows (annotation canvas ⌘Z/⌘C, quick access overlay ⌘C).
         let editMenuItem = NSMenuItem()
         let editMenu = NSMenu(title: L("Edit"))
         editMenu.addItem(menuItem(L("Undo"), action: #selector(editUndo(_:)), key: "z", modifiers: [.command]))
@@ -404,20 +357,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(menuItem(L("Select All"), action: #selector(editSelectAll(_:)), key: "a", modifiers: [.command]))
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
-
-        let timelineMenuItem = NSMenuItem()
-        let timelineMenu = NSMenu(title: L("Timeline"))
-        timelineMenu.addItem(menuItem(L("Split at Playhead"), action: #selector(timelineSplit(_:)), key: "s", modifiers: []))
-        timelineMenu.addItem(menuItem(L("Delete Selection"), action: #selector(timelineDeleteSelection(_:)), key: "\u{8}", modifiers: []))
-        timelineMenu.addItem(NSMenuItem.separator())
-        timelineMenu.addItem(menuItem(L("Set In to Playhead"), action: #selector(timelineTrimIn(_:)), key: "i", modifiers: []))
-        timelineMenu.addItem(menuItem(L("Set Out to Playhead"), action: #selector(timelineTrimOut(_:)), key: "o", modifiers: []))
-        timelineMenu.addItem(menuItem(L("Mute Clip"), action: #selector(timelineMuteClip(_:)), key: "m", modifiers: []))
-        timelineMenu.addItem(NSMenuItem.separator())
-        timelineMenu.addItem(menuItem(L("Undo Timeline Edit"), action: #selector(timelineUndo(_:)), key: "z", modifiers: [.command]))
-        timelineMenu.addItem(menuItem(L("Redo Timeline Edit"), action: #selector(timelineRedo(_:)), key: "Z", modifiers: [.command, .shift]))
-        timelineMenuItem.submenu = timelineMenu
-        mainMenu.addItem(timelineMenuItem)
 
         // Minimal Window menu with the standard window-management commands.
         let windowMenuItem = NSMenuItem()
@@ -507,8 +446,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func captureWindow()       { Task { await captureEngine.startWindowCapture(historyManager: historyManager) } }
     @objc func captureFullscreen()   { Task { await captureEngine.captureFullscreen(historyManager: historyManager) } }
     @objc func captureAllDisplays()  { Task { await captureEngine.captureAllDisplays(historyManager: historyManager) } }
-    @objc func capturePrevious()     { Task { await captureEngine.capturePreviousArea(historyManager: historyManager) } }
-    @objc func captureTimed()        { Task { await captureEngine.startTimedCapture(historyManager: historyManager) } }
     @objc func captureScrolling()    { Task { await captureEngine.startScrollingCapture(historyManager: historyManager) } }
     @objc func recordArea()          { Task { await captureEngine.startAreaRecording() } }
     @objc func recordWindow()        { Task { await captureEngine.startWindowRecording() } }
@@ -517,36 +454,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func captureText()         { Task { await captureEngine.startOCRCapture(historyManager: historyManager) } }
     @objc func scanQRCode()          { Task { await captureEngine.startQRCodeCapture() } }
     @objc func showEditor()          { AnnotationWindowController.bringOpenEditorsToFront() }
-    @objc func showVideoEditor() {
-        if VideoDemoEditorWindowController.hasOpenEditors {
-            VideoDemoEditorWindowController.bringOpenEditorsToFront()
-        } else if let url = Settings.resolvedLastRecordingURL {
-            Settings.lastRecordingPath = url.path
-            VideoDemoEditorWindowController.open(videoURL: url)
-        } else {
-            openVideoEditor()
-        }
-    }
-    @objc func editLastRecording() {
-        guard let url = Settings.resolvedLastRecordingURL else {
-            openVideoEditor()
-            return
-        }
-        Settings.lastRecordingPath = url.path
-        VideoDemoEditorWindowController.open(videoURL: url)
-    }
-    @objc func openVideoEditor() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowedContentTypes = [.mpeg4Movie, .quickTimeMovie, .movie]
-        panel.directoryURL = URL(fileURLWithPath: Settings.autoSaveLocation, isDirectory: true)
-
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        Settings.lastRecordingPath = url.path
-        VideoDemoEditorWindowController.open(videoURL: url)
-    }
     @objc func annotateLastScreenshot() {
         guard let last = historyManager.items.first else { return }
         AnnotationWindowController.open(image: last.fullImage, historyItem: last, historyManager: historyManager)
@@ -557,14 +464,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func openShortcutsPreferences() { PreferencesWindowController.shared.show(tab: .shortcuts) }
     @objc func openAbout()           { PreferencesWindowController.shared.show(tab: .about) }
     @objc func checkForUpdates(_ sender: Any?) { updateController?.checkForUpdates(sender) }
-    @objc func timelineSplit(_ sender: Any?) { VideoDemoEditorWindowController.splitActiveEditor() }
-    @objc func timelineDeleteSelection(_ sender: Any?) { VideoDemoEditorWindowController.deleteActiveSelection() }
-    @objc func timelineTrimIn(_ sender: Any?) { VideoDemoEditorWindowController.trimActiveInToPlayhead() }
-    @objc func timelineTrimOut(_ sender: Any?) { VideoDemoEditorWindowController.trimActiveOutToPlayhead() }
-    @objc func timelineMuteClip(_ sender: Any?) { VideoDemoEditorWindowController.muteActiveClip() }
-    @objc func timelineUndo(_ sender: Any?) { VideoDemoEditorWindowController.undoActiveTimelineEdit() }
-    @objc func timelineRedo(_ sender: Any?) { VideoDemoEditorWindowController.redoActiveTimelineEdit() }
-
     /// ⌘W: closes whichever Shotnix window is key — editors, history, pins,
     /// Settings, the post-capture thumbnail.
     @objc func closeKeyWindow(_ sender: Any?) {
@@ -597,18 +496,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // AppKit consumes a menu item's key equivalent even when the item is
     // disabled, so plain nil-target Edit items would swallow ⌘Z/⌘C before the
     // keyDown-based shortcuts in custom windows (annotation canvas, quick
-    // access overlay) or the Timeline menu ever see them. These handlers try
+    // access overlay) ever see them. These handlers try
     // the focused responder first and then fall back to app-specific handling.
 
     @objc func editUndo(_ sender: Any?) {
         // Focused text contexts (field editors, save panels) win.
         if let undoManager = NSApp.keyWindow?.firstResponder?.undoManager, undoManager.canUndo {
             undoManager.undo()
-            return
-        }
-        // The video editor's timeline undo stack is separate from NSUndoManager.
-        if NSApp.keyWindow?.delegate is VideoDemoEditorWindowController {
-            VideoDemoEditorWindowController.undoActiveTimelineEdit()
             return
         }
         // Windows with keyDown-based undo (annotation canvas) get the raw event.
@@ -620,10 +514,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             undoManager.redo()
             return
         }
-        if NSApp.keyWindow?.delegate is VideoDemoEditorWindowController {
-            VideoDemoEditorWindowController.redoActiveTimelineEdit()
-            return
-        }
         replayKeyEquivalent(characters: "z", keyCode: 6, modifiers: [.command, .shift])
     }
 
@@ -631,11 +521,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func editCopy(_ sender: Any?)      { dispatchEditAction(#selector(NSText.copy(_:)), characters: "c", keyCode: 8) }
     @objc func editPaste(_ sender: Any?)     { dispatchEditAction(#selector(NSText.paste(_:)), characters: "v", keyCode: 9) }
     @objc func editSelectAll(_ sender: Any?) {
-        // The video editor selects the whole video, unless text is being edited.
-        if let window = NSApp.keyWindow, window.delegate is VideoDemoEditorWindowController, !(window.firstResponder is NSText) {
-            VideoDemoEditorWindowController.selectWholeVideoInActiveEditor()
-            return
-        }
         dispatchEditAction(#selector(NSText.selectAll(_:)), characters: "a", keyCode: 0)
     }
 
@@ -712,11 +597,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if screenCount > 1 {
             captureActions.append(action(id: "capture.all-displays", title: L("Capture All Displays"), symbol: "rectangle.3.group", shortcut: .shotnixCaptureAllDisplays) { [weak self] in self?.captureAllDisplays() })
         }
-        captureActions.append(contentsOf: [
-            action(id: "capture.previous", title: L("Capture Previous Area"), symbol: "arrow.counterclockwise.circle", shortcut: .shotnixCapturePreviousArea) { [weak self] in self?.capturePrevious() },
-                action(id: "capture.timed", title: L("Timed Capture (\(Settings.timedCaptureDelaySeconds)s)"), symbol: "timer", shortcut: .shotnixCaptureTimed) { [weak self] in self?.captureTimed() },
-                action(id: "capture.scrolling", title: L("Scrolling Capture"), symbol: "scroll", shortcut: .shotnixCaptureScrolling) { [weak self] in self?.captureScrolling() },
-        ])
+        captureActions.append(action(id: "capture.scrolling", title: L("Scrolling Capture"), symbol: "scroll", shortcut: .shotnixCaptureScrolling) { [weak self] in self?.captureScrolling() })
 
         return [
             ShotnixMenuSection(id: "capture", title: L("Capture"), actions: captureActions),
@@ -751,21 +632,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ShotnixMenuSection(id: "tools", title: L("Tools"), actions: [
                 action(id: "tools.ocr", title: L("Capture Text"), symbol: "text.viewfinder", shortcut: .shotnixCaptureText) { [weak self] in self?.captureText() },
                 action(id: "tools.qr", title: L("Scan QR Code"), symbol: "qrcode.viewfinder") { [weak self] in self?.scanQRCode() },
-                action(id: "tools.video-editor", title: L("Open Video Editor"), symbol: "film.stack", role: .primary) { [weak self] in self?.openVideoEditor() },
-                action(id: "tools.last-recording", title: L("Edit Last Recording"), symbol: "play.rectangle.on.rectangle") { [weak self] in self?.editLastRecording() },
                 action(id: "tools.annotate-last", title: L("Annotate Last Screenshot"), symbol: "pencil.tip.crop.circle", isEnabled: !(historyManager?.items.isEmpty ?? true)) { [weak self] in self?.annotateLastScreenshot() },
             ]),
             ShotnixMenuSection(id: "utility", title: L("Utility"), actions: {
                 var utilityActions = [
                     action(id: "utility.history", title: L("Open History"), symbol: "clock.arrow.circlepath") { [weak self] in self?.openHistory() },
                 ]
+                if let recording = Settings.lastRecordingURL {
+                    utilityActions.append(action(
+                        id: "utility.last-recording",
+                        title: L("Show Last Recording in Finder"),
+                        symbol: "film"
+                    ) {
+                        NSWorkspace.shared.activateFileViewerSelecting([recording])
+                    })
+                }
                 // Editor-window rows only exist while an editor is open —
                 // disabled rows earn no space.
                 if AnnotationWindowController.hasOpenEditors {
                     utilityActions.append(action(id: "utility.editor", title: L("Show Editor"), symbol: "pencil.and.outline") { [weak self] in self?.showEditor() })
-                }
-                if VideoDemoEditorWindowController.hasOpenEditors {
-                    utilityActions.append(action(id: "utility.video-editor", title: L("Show Video Editor"), symbol: "film") { [weak self] in self?.showVideoEditor() })
                 }
                 utilityActions.append(action(id: "utility.desktop-icons", title: DesktopIconsManager.desktopIconsVisible ? L("Hide Desktop Icons") : L("Show Desktop Icons"), symbol: DesktopIconsManager.desktopIconsVisible ? "eye.slash" : "eye") { [weak self] in self?.toggleDesktopIcons() })
                 return utilityActions

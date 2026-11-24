@@ -67,7 +67,7 @@ final class RecordingCleanScreenIntegrationTests: XCTestCase {
             throw XCTSkip("the screen is locked or asleep")
         }
         _ = NSApplication.shared
-        VideoTestStorage.isolate()
+        RecordingRecovery.overrideRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         suiteName = "ShotnixCoreTests.RecordingCleanScreen.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName)
         Settings.defaults = defaults
@@ -77,8 +77,6 @@ final class RecordingCleanScreenIntegrationTests: XCTestCase {
         Settings.recordingMicrophone = false
         Settings.recordingSystemAudio = false
         Settings.recordingCamera = false
-        Settings.recordingKeystrokes = false
-        Settings.openVideoEditorAfterRecording = false
         Settings.recordingFPS = 30
     }
 
@@ -94,6 +92,8 @@ final class RecordingCleanScreenIntegrationTests: XCTestCase {
         windows.removeAll()
         if let folder { try? FileManager.default.removeItem(at: folder) }
         if let suiteName { defaults?.removePersistentDomain(forName: suiteName) }
+        if let root = RecordingRecovery.overrideRoot { try? FileManager.default.removeItem(at: root) }
+        RecordingRecovery.overrideRoot = nil
         Settings.defaults = .standard
         if displayAssertion != 0 { IOPMAssertionRelease(displayAssertion) }
         try await super.tearDown()

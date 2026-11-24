@@ -45922,6 +45922,46 @@
         }
       }
     },
+    "Recovered your interrupted recording “%@”. Click to show it in Finder." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die unterbrochene Aufnahme „%@“ wurde wiederhergestellt. Klicken, um sie im Finder zu zeigen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’enregistrement interrompu « %@ » a été récupéré. Cliquez pour l’afficher dans le Finder."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中断された録画「%@」を復元しました。クリックするとFinderに表示されます。"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прерванная запись «%@» восстановлена. Нажмите, чтобы показать её в Finder."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перерваний запис «%@» відновлено. Натисніть, щоб показати його у Finder."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已恢复中断的录制“%@”。点按可在访达中显示。"
+          }
+        }
+      }
+    },
     "Rectangle" : {
       "localizations" : {
         "de" : {
@@ -60107,6 +60147,46 @@
         }
       }
     },
+    "Show Last Recording in Finder" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letzte Aufnahme im Finder zeigen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher le dernier enregistrement dans le Finder"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最後の録画をFinderに表示"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показать последнюю запись в Finder"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показати останній запис у Finder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在访达中显示上次录制"
+          }
+        }
+      }
+    },
     "Show Quick Access Overlay" : {
       "comment" : "The thumbnail with actions that appears after a capture",
       "localizations" : {
@@ -63580,6 +63660,46 @@
         }
       }
     },
+    "Stop a recording with %@ from any app — plain Esc stays with the app you're recording." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beende die Aufnahme mit %@ aus jeder App. Esc allein bleibt bei der aufgenommenen App."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrêtez l’enregistrement avec %@ depuis n’importe quelle app. Échap seul reste réservé à l’app enregistrée."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "どのアプリからでも%@で録画を停止できます。Escキー単独は録画中のアプリで使えます。"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Остановить запись можно сочетанием %@ из любого приложения. Одиночное нажатие Esc обрабатывает приложение, которое вы записываете."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Зупинити запис можна сполученням %@ з будь-якої програми. Окреме натискання Esc обробляє програма, яку ви записуєте."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在任何 App 中按 %@ 都可停止录制。单按 Esc 仍由正在录制的 App 处理。"
+          }
+        }
+      }
+    },
     "Stop and Close" : {
       "localizations" : {
         "de" : {
@@ -65628,6 +65748,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "摄像头已停止。录制将继续，但不含摄像头画面。"
+          }
+        }
+      }
+    },
+    "The countdown gives you a moment after pressing Record; Esc cancels it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Countdown gibt dir nach dem Start Zeit. Mit Esc brichst du ihn ab."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le compte à rebours vous laisse un instant après avoir lancé l’enregistrement. Échap l’annule."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画ボタンを押すとカウントダウンが始まります。Escキーで中止できます。"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "После нажатия кнопки записи начинается обратный отсчёт. Esc отменяет его."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Після натискання кнопки запису починається зворотний відлік. Esc скасовує його."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点按录制后会开始倒计时，按 Esc 可取消。"
           }
         }
       }

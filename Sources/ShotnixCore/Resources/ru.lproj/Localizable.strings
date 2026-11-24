@@ -1968,6 +1968,8 @@
 	<string>Записывает указатель отдельно, чтобы редактор мог сглаживать его, менять размер и сохранять четкость при увеличении.</string>
 	<key>Recovered your interrupted recording “%@”. Click to open it.</key>
 	<string>Ваша прерванная запись «%@» восстановлена. Нажмите, чтобы открыть ее.</string>
+	<key>Recovered your interrupted recording “%@”. Click to show it in Finder.</key>
+	<string>Прерванная запись «%@» восстановлена. Нажмите, чтобы показать её в Finder.</string>
 	<key>Rectangle</key>
 	<string>Прямоугольник</string>
 	<key>Red</key>
@@ -2596,6 +2598,8 @@ Please enable it in System Settings → Privacy &amp; Security → Screen &amp; 
 	<string>Показать подсказки редактора</string>
 	<key>Show Folder in Finder</key>
 	<string>Показать папку в Finder</string>
+	<key>Show Last Recording in Finder</key>
+	<string>Показать последнюю запись в Finder</string>
 	<key>Show Quick Access Overlay</key>
 	<string>Показывать миниатюру быстрого доступа</string>
 	<key>Show Recent Export “%@” in Finder</key>
@@ -2756,6 +2760,8 @@ Please enable it in System Settings → Privacy &amp; Security → Screen &amp; 
 	<string>Выключить улучшение голоса</string>
 	<key>Stop Recording</key>
 	<string>Остановить запись</string>
+	<key>Stop a recording with %@ from any app — plain Esc stays with the app you're recording.</key>
+	<string>Остановить запись можно сочетанием %@ из любого приложения. Одиночное нажатие Esc обрабатывает приложение, которое вы записываете.</string>
 	<key>Stop and Close</key>
 	<string>Остановить и закрыть</string>
 	<key>Stop recording</key>
@@ -2858,6 +2864,8 @@ Please enable it in System Settings → Privacy &amp; Security → Screen &amp; 
 	<string>Камера держит указатель в кадре и плавно следует за ним.</string>
 	<key>The camera stopped. The recording continues without it.</key>
 	<string>Камера остановилась. Запись продолжается без нее.</string>
+	<key>The countdown gives you a moment after pressing Record; Esc cancels it.</key>
+	<string>После нажатия кнопки записи начинается обратный отсчёт. Esc отменяет его.</string>
 	<key>The cursor is part of this video</key>
 	<string>Указатель — часть этого видео</string>
 	<key>The export carries on in the background (Esc)</key>

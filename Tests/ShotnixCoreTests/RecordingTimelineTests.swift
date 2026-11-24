@@ -231,7 +231,7 @@ final class RecordingTimelineTests: XCTestCase {
     }
 
     /// A microphone dropout and a pause: later audio stays where the picture
-    /// is, and the paused stretch is gone from video, audio and activity.
+    /// is, and the paused stretch is gone from video and audio.
     func testDropoutsAndPausesKeepEverythingAligned() async throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("gaps-\(UUID().uuidString).mp4")
         defer { try? FileManager.default.removeItem(at: url) }
@@ -257,8 +257,7 @@ final class RecordingTimelineTests: XCTestCase {
             // The whole frame changes around the beeps; nothing else moves.
             let local = host - origin
             let active = (local >= 1.95 && local < 2.05) || (local >= 2.85 && local < 2.95)
-            let dirty = active ? [CGRect(x: 0, y: 0, width: 64, height: 36)] : []
-            core.appendVideo(RecordingTestBuffers.video(at: host, shade: active ? 250 : 128), dirtyRects: dirty, pixelsPerPoint: 0.5)
+            core.appendVideo(RecordingTestBuffers.video(at: host, shade: active ? 250 : 128))
             while audioTime < host + 1.0 / 30 {
                 let local = audioTime - origin
                 // The microphone delivers nothing from 1.0 to 1.5 s.
@@ -272,7 +271,6 @@ final class RecordingTimelineTests: XCTestCase {
         let end = core.appendFinalStaticFrame(at: origin + 3)
         XCTAssertEqual(end, 2.5, accuracy: 1e-6, "3 s minus the half-second pause")
         core.padAudio(to: end)
-        let activity = core.screenActivity
         core.deactivate()
         handles.videoInput.markAsFinished()
         handles.microphoneInput?.markAsFinished()
@@ -293,12 +291,5 @@ final class RecordingTimelineTests: XCTestCase {
         let gaps = zip(frames, frames.dropFirst()).map { $1 - $0 }
         XCTAssertLessThanOrEqual(gaps.max() ?? 1, 1.0 / 30 + 0.002, "the pause leaves no hole in the video")
         XCTAssertGreaterThan(gaps.min() ?? 0, 1.0 / 30 - 0.002, "and no doubled frame at the cut")
-
-        // Screen activity uses the same clock: both bursts, the second retimed.
-        XCTAssertFalse(activity.isEmpty)
-        XCTAssertTrue(activity.contains { abs($0 - 1.97) < 0.06 }, "\(activity)")
-        XCTAssertTrue(activity.contains { abs($0 - 2.37) < 0.06 }, "\(activity)")
-        XCTAssertFalse(activity.contains { $0 > 2.5 }, "\(activity)")
-        XCTAssertTrue(zip(activity, activity.dropFirst()).allSatisfy { $1 - $0 >= 0.1 - 1e-6 })
     }
 }

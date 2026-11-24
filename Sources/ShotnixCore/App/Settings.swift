@@ -247,30 +247,6 @@ enum Settings {
         set { defaults.set(newValue, forKey: "recordingShowsCursor") }
     }
 
-    /// Record the pointer as data instead of pixels so the video editor can
-    /// redraw it smoothed, resized, and crisp at any zoom. On by default;
-    /// off bakes the system cursor into the raw file like a plain recorder.
-    static var recordingEditableCursor: Bool {
-        get {
-            if defaults.object(forKey: "recordingEditableCursor") == nil { return true }
-            return defaults.bool(forKey: "recordingEditableCursor")
-        }
-        set { defaults.set(newValue, forKey: "recordingEditableCursor") }
-    }
-
-    /// Record keyboard shortcuts (⌘/⌃/⌥ combos, never plain typing) so the
-    /// editor can show them. Needs the Accessibility permission.
-    static var recordingKeystrokes: Bool {
-        get { defaults.bool(forKey: "recordingKeystrokes") }
-        set { defaults.set(newValue, forKey: "recordingKeystrokes") }
-    }
-
-    /// Language for generated captions (BCP-47; empty = the Mac's language).
-    static var videoCaptionLanguage: String {
-        get { defaults.string(forKey: "videoCaptionLanguage") ?? "" }
-        set { defaults.set(newValue, forKey: "videoCaptionLanguage") }
-    }
-
     /// Record the camera alongside the screen.
     static var recordingCamera: Bool {
         get { defaults.bool(forKey: "recordingCamera") }
@@ -295,14 +271,6 @@ enum Settings {
     static var recordingMicrophoneDeviceID: String {
         get { defaults.string(forKey: "recordingMicrophoneDeviceID") ?? "" }
         set { defaults.set(newValue, forKey: "recordingMicrophoneDeviceID") }
-    }
-
-    static var openVideoEditorAfterRecording: Bool {
-        get {
-            if defaults.object(forKey: "openVideoEditorAfterRecording") == nil { return true }
-            return defaults.bool(forKey: "openVideoEditorAfterRecording")
-        }
-        set { defaults.set(newValue, forKey: "openVideoEditorAfterRecording") }
     }
 
     static var lastRecordingPath: String {
@@ -387,57 +355,10 @@ enum Settings {
         set { defaults.set(newValue, forKey: "captureCount") }
     }
 
-    /// Videos exported on this Mac (finished ones only). Drives the same nudge for people who record.
-    static var videoExportCount: Int {
-        get { defaults.integer(forKey: "videoExportCount") }
-        set { defaults.set(newValue, forKey: "videoExportCount") }
-    }
-
     /// Raw `StarNudge.State`. Empty until the nudge machinery first runs.
     static var starNudgeState: String {
         get { defaults.string(forKey: "starNudgeState") ?? "" }
         set { defaults.set(newValue, forKey: "starNudgeState") }
-    }
-
-    // MARK: – Video export
-
-    /// "mp4" or "gif" — last format chosen in the export save panel.
-    static var videoExportFormat: String {
-        get { defaults.string(forKey: "videoExportFormat") ?? "mp4" }
-        set { defaults.set(newValue == "gif" ? "gif" : "mp4", forKey: "videoExportFormat") }
-    }
-
-    /// 24, 30, or 60 — defaults to 60 for silky screen motion.
-    static var videoExportFPS: Int {
-        get {
-            let v = defaults.integer(forKey: "videoExportFPS")
-            return [24, 30, 60].contains(v) ? v : 60
-        }
-        set { defaults.set([24, 30, 60].contains(newValue) ? newValue : 60, forKey: "videoExportFPS") }
-    }
-
-    static var videoExportHalfResolution: Bool {
-        get { defaults.bool(forKey: "videoExportHalfResolution") }
-        set { defaults.set(newValue, forKey: "videoExportHalfResolution") }
-    }
-
-    /// Appends the short "Made with Shotnix" outro to MP4 exports.
-    /// The "Made with Shotnix" end card is opt-in. It used to be on unless
-    /// turned off, and every export saved the setting ("videoExportEndCard"),
-    /// so that key can't tell who chose it: this one starts everyone off.
-    static var videoExportEndCard: Bool {
-        get { defaults.bool(forKey: "videoExportEndCardOn") }
-        set { defaults.set(newValue, forKey: "videoExportEndCardOn") }
-    }
-
-    /// Auto-generate click-following zooms when a fresh recording opens in the
-    /// video editor (the recording feels "produced" with zero editing).
-    static var autoZoomNewRecordings: Bool {
-        get {
-            if defaults.object(forKey: "autoZoomNewRecordings") == nil { return true }
-            return defaults.bool(forKey: "autoZoomNewRecordings")
-        }
-        set { defaults.set(newValue, forKey: "autoZoomNewRecordings") }
     }
 
     // MARK: – Annotation editor

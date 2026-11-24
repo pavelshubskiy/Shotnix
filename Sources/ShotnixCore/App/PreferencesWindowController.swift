@@ -899,19 +899,14 @@ struct RecordingSettingsView: View {
     @AppStorage("recordingFPS") var fps = 60
     @AppStorage("recordingQuality") var quality = "high"
     @AppStorage("recordingShowsCursor") var showsCursor = true
-    @AppStorage("recordingEditableCursor") var editableCursor = true
     @AppStorage("recordingSystemAudio") var systemAudio = false
     @AppStorage("recordingMicrophone") var microphone = false
     @AppStorage("recordingMicrophoneDeviceID") var microphoneDeviceID = ""
-    @AppStorage("openVideoEditorAfterRecording") var openVideoEditorAfterRecording = true
-    @AppStorage("autoZoomNewRecordings") var autoZoomNewRecordings = true
-    @AppStorage("recordingKeystrokes") var keystrokes = false
     @AppStorage("recordingCamera") var camera = false
     @AppStorage("recordingCameraDeviceID") var cameraDeviceID = ""
     @AppStorage("recordingCountdownSeconds") var countdown = 0
     @AppStorage("recordingHidesMenuBarIcons") var hidesMenuBarIcons = false
     @AppStorage("recordingHidesDesktopIcons") var hidesDesktopIcons = false
-    @State private var keystrokeAccess = VideoKeystrokeFormatter.isAllowed
 
     private var microphones: [MicrophoneOption] { MicrophoneDeviceProvider.options }
 
@@ -976,62 +971,10 @@ struct RecordingSettingsView: View {
                         .toggleStyle(.switch)
                 }
 
-                PreferenceDivider()
-
-                PreferenceRow(L("Editable cursor")) {
-                    Toggle("", isOn: $editableCursor)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .disabled(!showsCursor)
-                }
-
-                PreferenceDivider()
-
-                PreferenceRow(L("Open editor after recording")) {
-                    Toggle("", isOn: $openVideoEditorAfterRecording)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                }
-
-                PreferenceDivider()
-
-                PreferenceRow(L("Auto-zoom new recordings")) {
-                    Toggle("", isOn: $autoZoomNewRecordings)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                }
-
-                PreferenceDivider()
-
-                PreferenceRow(L("Show keyboard shortcuts")) {
-                    HStack(spacing: 8) {
-                        if keystrokes && !keystrokeAccess {
-                            Button(L("Allow Access…")) {
-                                VideoKeystrokeFormatter.requestAccess()
-                                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
-                            }
-                            .controlSize(.small)
-                        }
-                        Toggle("", isOn: Binding(
-                            get: { keystrokes },
-                            set: { on in
-                                keystrokes = on
-                                if on && !VideoKeystrokeFormatter.isAllowed {
-                                    VideoKeystrokeFormatter.requestAccess()
-                                }
-                                keystrokeAccess = VideoKeystrokeFormatter.isAllowed
-                            }
-                        ))
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                    }
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-                keystrokeAccess = VideoKeystrokeFormatter.isAllowed
             }
 
-            PreferenceFootnote(text: L("Editable cursor records the pointer separately so the editor can smooth it, resize it, and keep it crisp when zoomed — the video editor adds it back on export (the raw recording file has no pointer). Auto-zoom makes a fresh recording open already produced: the camera zooms to follow your clicks. Keyboard shortcuts records only ⌘, ⌃ and ⌥ combos (plus Esc and F-keys) so the editor can show them as keycaps — plain typing is never recorded; macOS asks for Accessibility access. High quality is the default; Max keeps more detail but creates larger files. The countdown gives you a moment after pressing Record; Esc cancels it. Stop a recording with \(RecordingStopHotkey.displayText) from any app — plain Esc stays with the app you're recording."))
+            PreferenceFootnote(text: L("The countdown gives you a moment after pressing Record; Esc cancels it."))
+            PreferenceFootnote(text: L("Stop a recording with \(RecordingStopHotkey.displayText) from any app — plain Esc stays with the app you're recording."))
 
             PreferenceSection(L("Audio")) {
                 PreferenceRow(L("Record system audio")) {
@@ -1109,12 +1052,7 @@ struct RecordingSettingsView: View {
                 ? L("Hide menu bar icons leaves the icons and the clock on the right of the menu bar out of the video, while you still see them on your screen. Hide desktop icons covers the files, folders and widgets on the display you record until the recording stops. The recording timer in the menu bar and the purple indicator beside it are always left out.")
                 : L("Hide desktop icons covers the files, folders and widgets on the display you record until the recording stops."))
 
-            // Leftover video data (VideoDataCleanup.swift).
-            PreferenceSection(L("Storage")) {
-                VideoDataSettingsRow()
-            }
 
-            PreferenceFootnote(text: L("Clean Up lists what it would remove — the data of recordings Shotnix can't find, camera footage and pictures nothing uses, and clipboard exports older than a day — and asks first. On its own, Shotnix only removes clipboard exports older than a day; the data of your recordings stays until you clean it up here."))
         }
     }
 }

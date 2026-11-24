@@ -14,7 +14,6 @@ final class AppearanceLiveSwitchTests: XCTestCase {
 
     override class func setUp() {
         super.setUp()
-        VideoTestStorage.isolate()
     }
 
     override func tearDown() {
@@ -115,45 +114,5 @@ final class AppearanceLiveSwitchTests: XCTestCase {
             stage.addSubview(toolbar)
             return stage
         }
-    }
-
-    func testTheVideoEditorTurnsCompletely() async throws {
-        let model = try await demoModel()
-        model.seek(to: 4)
-        model.addOverlay(.highlight)
-        model.seek(to: 4.5)
-        model.addOverlay(.text)
-        model.seek(to: 8)
-        model.addOverlay(.blur)
-        model.selection = .none
-        let timelineHeight = 44 + 1 + VideoTimelineMetrics.contentHeight(model.project) + 10
-        try assertTurnsCompletely("the timeline") {
-            host(VideoTimelineView(model: model), size: CGSize(width: 1400, height: timelineHeight))
-        }
-        try assertTurnsCompletely("the inspector") {
-            host(VideoInspectorView(model: model), size: CGSize(width: 318, height: 900))
-        }
-        model.isExportPresented = true
-        try assertTurnsCompletely("the export sheet") {
-            host(VideoExportSheet(model: model), size: CGSize(width: 900, height: 760))
-        }
-        model.isExportPresented = false
-    }
-
-    private func demoModel() async throws -> VideoEditorModel {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("shotnix-appearance", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let url = directory.appendingPathComponent("appearance.mp4")
-        if !FileManager.default.fileExists(atPath: url.path) {
-            try await VideoTestSupport.writeFakeRecording(to: url, size: CGSize(width: 1440, height: 900), seconds: 12, fps: 30)
-        }
-        let (samples, clicks) = VideoTestSupport.scriptedPointer(duration: 12)
-        let metadata = VideoDemoRecordingMetadata(videoURLPath: url.path, createdAt: Date(), duration: 12, sourceWidth: 1440, sourceHeight: 900, fps: 30, nativeCursorVisible: false, cursorSamples: samples, clickEvents: clicks, pointPixelScale: 2, renderCursor: true)
-        VideoDemoSidecarStore.save(metadata, for: url)
-        VideoDemoDraftStore.delete(for: url)
-        let model = VideoEditorModel(videoURL: url)
-        await model.load()
-        try? await Task.sleep(nanoseconds: 600_000_000)
-        return model
     }
 }

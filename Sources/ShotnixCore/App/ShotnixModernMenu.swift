@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum ShotnixMenuMetrics {
-    static let commandCenterWidth: CGFloat = 360
+    static let commandCenterWidth: CGFloat = 500
     static let actionMenuWidth: CGFloat = 236
     static let cornerRadius: CGFloat = 12
     static let rowRadius: CGFloat = 9
@@ -59,7 +59,7 @@ final class ShotnixModernMenuPresenter {
 
         let screen = NSScreen.main ?? NSScreen.screens.first
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
-        let height = min(620, max(420, visible.height - 80))
+        let height = min(432, visible.height - 40)
         panel.setFrame(
             NSRect(
                 x: visible.midX - ShotnixMenuMetrics.commandCenterWidth / 2,
@@ -105,7 +105,7 @@ final class ShotnixModernMenuPresenter {
             dismiss: { [weak self] in self?.dismiss() }
         )
         let screenHeight = button.window?.screen?.visibleFrame.height ?? NSScreen.main?.visibleFrame.height ?? 700
-        let height = min(620, max(420, screenHeight - 80))
+        let height = min(432, screenHeight - 40)
         popover.contentSize = NSSize(width: ShotnixMenuMetrics.commandCenterWidth, height: height)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         animateEntrance(on: controller.view)
@@ -235,133 +235,90 @@ struct ShotnixCommandCenterView: View {
         sections.first { $0.id == "settings" }?.actions ?? []
     }
 
-    private var visibleHealthRows: [ShotnixHealthRow] {
-        healthRows.filter { $0.kind != .version }
+    private var captureSections: [ShotnixMenuSection] {
+        contentSections.filter { $0.id == "capture" || $0.id == "record" }
     }
 
-    private var versionRow: ShotnixHealthRow? {
-        healthRows.first { $0.kind == .version }
+    private var attentionRows: [ShotnixHealthRow] {
+        healthRows.filter { $0.kind != .version && ($0.state == .warning || $0.state == .issue) }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            HStack(spacing: 8) {
+                Image(systemName: "crop")
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityHidden(true)
+                Text(verbatim: "Shotnix")
+                    .font(.system(size: 16, weight: .semibold))
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
 
-            ShotnixSmoothScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    healthSection
+            Divider()
 
-                    ForEach(contentSections) { section in
-                        ShotnixMenuSectionView(section: section, dismiss: dismiss)
+            ScrollView {
+                VStack(spacing: 10) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(captureSections) { section in
+                            commandSection(section)
+                        }
+                    }
+                    Divider()
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(contentSections.filter { $0.id != "capture" && $0.id != "record" }) { section in
+                            commandSection(section)
+                        }
+                    }
+                    if !attentionRows.isEmpty {
+                        Divider()
+                        ForEach(attentionRows) { row in
+                            ShotnixHealthTile(
+                                row: row,
+                                action: healthActions[row.kind].map { action in
+                                    {
+                                        dismiss()
+                                        action()
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
-                .padding(.bottom, 14)
-                .frame(width: ShotnixMenuMetrics.commandCenterWidth)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
             }
-            // Soft edge fades hint at scrollability now that no bar renders.
-            .mask(
-                VStack(spacing: 0) {
-                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                        .frame(height: 8)
-                    Rectangle().fill(Color.black)
-                    LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
-                        .frame(height: 10)
-                }
-            )
-            .frame(maxHeight: 560)
 
             if !footerActions.isEmpty {
                 ShotnixCommandFooter(
                     actions: footerActions,
-                    versionText: versionRow?.detail,
+                    versionText: healthRows.first { $0.kind == .version }?.detail,
                     dismiss: dismiss
                 )
             }
         }
         .frame(width: ShotnixMenuMetrics.commandCenterWidth)
-        .background(ShotnixHUDBackground())
+        .background(Color(NSColor.windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: ShotnixMenuMetrics.cornerRadius, style: .continuous))
         .onExitCommand(perform: dismiss)
-        .focusable()
     }
 
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "crop")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.tint)
-                .frame(width: 28, height: 28)
-                .background(ShotnixTheme.ink(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    private func commandSection(_ section: ShotnixMenuSection) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(section.title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.bottom, 3)
+                .accessibilityAddTraits(.isHeader)
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(verbatim: "Shotnix")
-                    .font(.system(size: 14, weight: .semibold))
-                Text(L("Command Center"))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(ShotnixTheme.shade(0.12))
-    }
-
-    private var attentionRows: [ShotnixHealthRow] {
-        visibleHealthRows.filter { $0.state == .warning || $0.state == .issue }
-    }
-
-    /// When everything is green the old 2×N tile grid burned ~120pt at the
-    /// top of every menu open. Healthy state collapses to one quiet line;
-    /// tiles appear only for the rows that actually need attention.
-    private var healthSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ShotnixMenuSectionLabel(L("Health"))
-
-            if attentionRows.isEmpty {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(ShotnixTheme.success)
-                    Text(L("Everything is ready"))
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(Color.primary.opacity(0.85))
-                    Spacer(minLength: 4)
-                    Text(L("Capture · Record · Updates"))
-                        .font(.system(size: 9.5, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, 10)
-                .frame(height: 32)
-                .background(Color(NSColor.systemGreen).opacity(0.07), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(Color(NSColor.systemGreen).opacity(0.14), lineWidth: 1)
-                )
-            } else {
-                // Full-width rows, not half-width grid cells: attention tiles
-                // are rare, and titles like "Apple Shortcuts · Conflict
-                // detected" were truncating to "Apple Sho… / Conflict det…"
-                // when squeezed into a 2-column grid.
-                VStack(spacing: 6) {
-                    ForEach(attentionRows) { row in
-                        ShotnixHealthTile(
-                            row: row,
-                            action: healthActions[row.kind].map { action in
-                                {
-                                    dismiss()
-                                    action()
-                                }
-                            }
-                        )
-                    }
-                }
+            ForEach(section.actions) { action in
+                ShotnixMenuActionRow(action: action, isSelected: false, quiet: true, dismiss: dismiss, onHover: nil)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
@@ -386,14 +343,21 @@ private struct ShotnixCommandFooter: View {
                     dismiss()
                     action.handler()
                 } label: {
-                    Image(systemName: action.symbolName)
-                        .font(.system(size: 12, weight: .semibold))
-                        .frame(width: 28, height: 28)
-                        .foregroundStyle(action.isEnabled ? ShotnixTheme.ink(0.82) : ShotnixTheme.ink(0.28))
-                        .background(ShotnixTheme.ink(action.isEnabled ? 0.075 : 0.035), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    HStack(spacing: 6) {
+                        Image(systemName: action.symbolName)
+                        if action.id == "settings.preferences" {
+                            Text(action.title)
+                        }
+                    }
+                    .font(.system(size: 12, weight: .semibold))
+                    .padding(.horizontal, 8)
+                    .frame(minWidth: 28, minHeight: 28)
+                    .foregroundStyle(action.isEnabled ? Color.primary : Color.secondary)
+                    .background(ShotnixTheme.ink(0.075), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(!action.isEnabled)
+                .accessibilityLabel(Text(action.title))
                 .help(action.title)
             }
 
@@ -418,6 +382,7 @@ private struct ShotnixCommandFooter: View {
                         .background(Color(NSColor.systemRed).opacity(0.13), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(Text(quitAction.title))
                 .help(quitAction.title)
             }
         }
@@ -533,11 +498,13 @@ private struct ShotnixMenuSectionLabel: View {
 private struct ShotnixMenuActionRow: View {
     let action: ShotnixMenuAction
     let isSelected: Bool
+    var quiet = false
     let dismiss: () -> Void
     let onHover: ((String?) -> Void)?
     @State private var isHovered = false
+    @FocusState private var isFocused: Bool
 
-    private var active: Bool { isHovered || isSelected }
+    private var active: Bool { isHovered || isSelected || isFocused }
     private var isPrimary: Bool { action.role == .primary }
 
     var body: some View {
@@ -557,7 +524,8 @@ private struct ShotnixMenuActionRow: View {
                     Text(action.title)
                         .font(.system(size: isPrimary ? 13.5 : 13, weight: isPrimary ? .bold : .medium))
                         .foregroundStyle(textColor)
-                        .lineLimit(1)
+                        .lineLimit(quiet ? 2 : 1)
+                        .fixedSize(horizontal: false, vertical: quiet)
 
                     if let subtitle = action.subtitle {
                         Text(subtitle)
@@ -574,10 +542,11 @@ private struct ShotnixMenuActionRow: View {
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .fixedSize()
                 }
             }
             .padding(.horizontal, 8)
-            .frame(height: rowHeight)
+            .frame(minHeight: rowHeight)
             .background(rowBackground, in: RoundedRectangle(cornerRadius: ShotnixMenuMetrics.rowRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: ShotnixMenuMetrics.rowRadius, style: .continuous)
@@ -587,6 +556,7 @@ private struct ShotnixMenuActionRow: View {
         }
         .buttonStyle(.plain)
         .disabled(!action.isEnabled)
+        .focused($isFocused)
         .opacity(action.isEnabled ? 1 : 0.45)
         .onHover { hover in
             isHovered = hover
@@ -607,6 +577,7 @@ private struct ShotnixMenuActionRow: View {
     }
 
     private var iconBackground: Color {
+        if quiet { return .clear }
         if action.role == .destructive { return Color(NSColor.systemRed).opacity(0.15) }
         if isPrimary { return Color.accentColor.opacity(0.18) }
         return ShotnixTheme.ink(0.07)
@@ -616,15 +587,16 @@ private struct ShotnixMenuActionRow: View {
         if isPrimary && active { return Color.accentColor.opacity(0.16) }
         if isPrimary { return Color.accentColor.opacity(0.09) }
         if active { return ShotnixTheme.ink(0.12) }
-        return ShotnixTheme.ink(0.045)
+        return quiet ? .clear : ShotnixTheme.ink(0.045)
     }
 
     private var rowBorder: Color {
         if isPrimary { return Color.accentColor.opacity(active ? 0.34 : 0.22) }
-        return ShotnixTheme.ink(active ? 0.08 : 0.035)
+        return quiet ? (isFocused ? .accentColor : .clear) : ShotnixTheme.ink(active ? 0.08 : 0.035)
     }
 
     private var rowHeight: CGFloat {
+        if quiet { return 28 }
         if action.subtitle != nil { return 44 }
         return isPrimary ? 40 : 36
     }
@@ -704,42 +676,6 @@ private struct ShotnixHealthTile: View {
         case .issue: return ShotnixTheme.danger
         case .info: return .accentColor
         }
-    }
-}
-
-/// SwiftUI's ScrollView on macOS ignores `.scrollIndicators(.hidden)` whenever
-/// a mouse is connected or "Show scroll bars: Always" is set — the legacy
-/// scroller still renders as a thick gray slab down the menu. Wrapping the
-/// real NSScrollView guarantees a bar-free, elastic, buttery scroll.
-private struct ShotnixSmoothScrollView<Content: View>: NSViewRepresentable {
-    let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSScrollView()
-        scroll.drawsBackground = false
-        scroll.hasVerticalScroller = false
-        scroll.hasHorizontalScroller = false
-        scroll.verticalScrollElasticity = .allowed
-        scroll.horizontalScrollElasticity = .none
-        scroll.automaticallyAdjustsContentInsets = false
-
-        let host = NSHostingView(rootView: content)
-        host.translatesAutoresizingMaskIntoConstraints = false
-        scroll.documentView = host
-        NSLayoutConstraint.activate([
-            host.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
-            host.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
-            host.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
-        ])
-        return scroll
-    }
-
-    func updateNSView(_ nsView: NSScrollView, context: Context) {
-        (nsView.documentView as? NSHostingView<Content>)?.rootView = content
     }
 }
 

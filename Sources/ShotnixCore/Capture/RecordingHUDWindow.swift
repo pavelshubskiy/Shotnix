@@ -30,7 +30,6 @@ final class RecordingHUDWindow: NSPanel {
     private let pauseGlyph = NSImageView()
     private let spinner = NSProgressIndicator()
     private let cameraIcon = NSImageView()
-    private let keysIcon = NSImageView()
     private let warningIcon = NSImageView()
     private let microphoneLevelMeter = RecordingHUDLevelMeter()
     private let microphoneWarning = NSImageView()
@@ -42,7 +41,6 @@ final class RecordingHUDWindow: NSPanel {
     private var detailText = L("Recording")
     private var showsMicrophone = false
     private var showsCamera = false
-    private var showsKeystrokes = false
     private var hasWarning = false
     /// Shown in place of the details for a few seconds after it happens.
     private var freshWarning: String?
@@ -170,7 +168,6 @@ final class RecordingHUDWindow: NSPanel {
 
         for (icon, name, tint, label) in [
             (cameraIcon, "video.fill", NSColor.systemBlue, L("Recording the camera")),
-            (keysIcon, "command", NSColor.white.withAlphaComponent(0.6), L("Recording keyboard shortcuts")),
             (warningIcon, "exclamationmark.triangle.fill", NSColor.systemOrange, L("Warning")),
         ] {
             icon.image = symbol(name, size: 10)
@@ -221,7 +218,7 @@ final class RecordingHUDWindow: NSPanel {
         updateToolTips()
     }
 
-    func configure(systemAudio: Bool, microphone: Bool, camera: Bool, keystrokes: Bool, fps: Int, quality: String) {
+    func configure(systemAudio: Bool, microphone: Bool, camera: Bool, fps: Int, quality: String) {
         let audio = if systemAudio && microphone {
             L("sys+mic")
         } else if systemAudio {
@@ -236,7 +233,6 @@ final class RecordingHUDWindow: NSPanel {
         detailLabel.toolTip = L("\(quality.capitalized) quality · \(audio)")
         showsMicrophone = microphone
         showsCamera = camera
-        showsKeystrokes = keystrokes
         applyState()
     }
 
@@ -361,7 +357,6 @@ final class RecordingHUDWindow: NSPanel {
         detailLabel.isHidden = !active
         confirmLabel.isHidden = !confirming
         cameraIcon.isHidden = !(active && showsCamera)
-        keysIcon.isHidden = !(active && showsKeystrokes)
         warningIcon.isHidden = !(active && hasWarning)
         layoutIndicators()
         microphoneLevelMeter.isHidden = !(active && showsMicrophone && !microphoneSilent)
@@ -392,7 +387,7 @@ final class RecordingHUDWindow: NSPanel {
 
     private func layoutIndicators() {
         var x: CGFloat = 220
-        for icon in [cameraIcon, keysIcon, warningIcon] where !icon.isHidden {
+        for icon in [cameraIcon, warningIcon] where !icon.isHidden {
             icon.frame = NSRect(x: x, y: 15, width: 14, height: 14)
             x += 17
         }

@@ -1,9 +1,6 @@
 import AppKit
 import AVFoundation
 
-/// The camera while recording: a live bubble on screen (kept out of the
-/// screen capture) and a separate movie file that the editor places over
-/// the recording — so its size, shape, and position stay editable.
 @MainActor
 final class CameraCapture {
     static let shared = CameraCapture()
@@ -64,13 +61,10 @@ final class CameraCapture {
         return AVCaptureDevice.default(for: .video) ?? devices.first
     }
 
-    /// Where camera movies live (next to the other editor data, not in the
-    /// user's recordings folder).
+    /// Save the optional camera clip alongside the screen MP4.
     static func movieURL(for screenRecording: URL) -> URL {
-        VideoStorageLocation.root
-            .appendingPathComponent("Shotnix", isDirectory: true)
-            .appendingPathComponent("VideoCameras", isDirectory: true)
-            .appendingPathComponent("\(screenRecording.deletingPathExtension().lastPathComponent)-\(UUID().uuidString.prefix(8)).mov")
+        screenRecording.deletingLastPathComponent()
+            .appendingPathComponent("\(screenRecording.deletingPathExtension().lastPathComponent)-camera-\(UUID().uuidString.prefix(8)).mov")
     }
 
     /// Starts the camera and shows the bubble at the bottom-right of `rect`

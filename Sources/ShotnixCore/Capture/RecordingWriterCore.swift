@@ -260,14 +260,12 @@ final class RecordingWriterCore: @unchecked Sendable {
     private var droppedPendingAudioSampleCount = 0
     private var audioWritten: [RecordingAudioTarget: Double] = [:]
     private var audioFormats: [RecordingAudioTarget: CMAudioFormatDescription] = [:]
-    private var activity = RecordingScreenActivity()
     private var frameDrops = RecordingFrameDrops()
     private var isActive = false
     private var onFirstFrame: ((Double) -> Void)?
     private var onWriterFailure: (() -> Void)?
     private var onFramesDropping: (() -> Void)?
 
-    var screenActivity: [Double] { activity.samples }
     var droppedFrameCount: Int { frameDrops.dropped }
     /// Seconds of audio written per track, for tests and diagnostics.
     func writtenAudio(for target: RecordingAudioTarget) -> Double { audioWritten[target] ?? 0 }
@@ -311,7 +309,6 @@ final class RecordingWriterCore: @unchecked Sendable {
         droppedPendingAudioSampleCount = 0
         audioWritten.removeAll()
         audioFormats.removeAll()
-        activity = RecordingScreenActivity()
         frameDrops = RecordingFrameDrops()
         isActive = false
         onFirstFrame = nil
@@ -327,9 +324,7 @@ final class RecordingWriterCore: @unchecked Sendable {
         timeline.resume(at: host)
     }
 
-    /// `dirtyRects` are in output pixels; `pixelsPerPoint` turns them into
-    /// screen points for the activity threshold.
-    func appendVideo(_ sampleBuffer: CMSampleBuffer, dirtyRects: [CGRect]? = nil, pixelsPerPoint: CGFloat = 1) {
+    func appendVideo(_ sampleBuffer: CMSampleBuffer) {
         guard isActive, let writer, let input = videoInput else { return }
 
         let host = sampleBuffer.presentationTimeStamp.seconds
@@ -358,15 +353,6 @@ final class RecordingWriterCore: @unchecked Sendable {
             lastCompleteSampleBuffer = sampleBuffer
             _ = frameDrops.record(dropped: false, at: time)
             keepAudioUp(with: time)
-            if let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
-                activity.observe(
-                    time: time,
-                    dirtyRects: dirtyRects,
-                    frameSize: CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer)),
-                    pixelsPerPoint: pixelsPerPoint,
-                    grid: { RecordingScreenActivity.grid(of: pixelBuffer) }
-                )
-            }
         } else if let error = writer.error {
             print("[Shotnix] Asset writer append failed: \(error)")
             if writer.status == .failed {

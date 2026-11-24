@@ -995,6 +995,9 @@
   "Recovered your interrupted recording “%@”. Click to open it." : {
     "ja" : "中断された収録“%@”を復元しました。クリックすると開きます。"
   },
+  "Recovered your interrupted recording “%@”. Click to show it in Finder." : {
+    "ja" : "中断された録画「%@」を復元しました。クリックするとFinderに表示されます。"
+  },
   "Rectangle" : {
     "ja" : "長方形"
   },
@@ -1223,6 +1226,9 @@
   "Show Editor" : {
     "ja" : "エディタを表示"
   },
+  "Show Last Recording in Finder" : {
+    "ja" : "最後の録画をFinderに表示"
+  },
   "Show Quick Access Overlay" : {
     "ja" : "クイックアクセスのサムネールを表示"
   },
@@ -1286,6 +1292,9 @@
   "Stop Recording" : {
     "ja" : "収録を停止"
   },
+  "Stop a recording with %@ from any app — plain Esc stays with the app you're recording." : {
+    "ja" : "どのアプリからでも%@で録画を停止できます。Escキー単独は録画中のアプリで使えます。"
+  },
   "Storage" : {
     "ja" : "ストレージ"
   },
@@ -1330,6 +1339,9 @@
   },
   "Text: %@" : {
     "ja" : "テキスト: %@"
+  },
+  "The countdown gives you a moment after pressing Record; Esc cancels it." : {
+    "ja" : "録画ボタンを押すとカウントダウンが始まります。Escキーで中止できます。"
   },
   "The full report is on your clipboard. Paste it into the email." : {
     "ja" : "レポート全文をクリップボードにコピーしました。メールにペーストしてください。"

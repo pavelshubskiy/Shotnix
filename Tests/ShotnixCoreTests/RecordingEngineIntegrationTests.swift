@@ -23,7 +23,7 @@ final class RecordingEngineIntegrationTests: XCTestCase {
         IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn), "Shotnix recording tests" as CFString, &displayAssertion)
         guard await Self.wakeDisplays() else { throw XCTSkip("no display to record (asleep or headless)") }
         _ = NSApplication.shared
-        VideoTestStorage.isolate()
+        RecordingRecovery.overrideRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         suiteName = "ShotnixCoreTests.RecordingEngine.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName)
         Settings.defaults = defaults
@@ -34,8 +34,6 @@ final class RecordingEngineIntegrationTests: XCTestCase {
         Settings.recordingMicrophone = false
         Settings.recordingSystemAudio = false
         Settings.recordingCamera = false
-        Settings.recordingKeystrokes = false
-        Settings.openVideoEditorAfterRecording = false
         Settings.recordingFPS = 30
     }
 
@@ -47,6 +45,8 @@ final class RecordingEngineIntegrationTests: XCTestCase {
         engine = nil
         if let folder { try? FileManager.default.removeItem(at: folder) }
         if let suiteName { defaults?.removePersistentDomain(forName: suiteName) }
+        if let root = RecordingRecovery.overrideRoot { try? FileManager.default.removeItem(at: root) }
+        RecordingRecovery.overrideRoot = nil
         Settings.defaults = .standard
         if displayAssertion != 0 { IOPMAssertionRelease(displayAssertion) }
         try await super.tearDown()
@@ -106,24 +106,11 @@ final class RecordingEngineIntegrationTests: XCTestCase {
         return (CGRect(x: screen.frame.minX + 120, y: screen.frame.minY + 120, width: 640, height: 360), screen)
     }
 
-    /// Whether the new take itself started is the machine's business (see
-    /// start(_:_:)); tests that only care about the last one tidy it away.
-    private func discardIfRecording(_ engine: RecordingEngine) async throws {
-        guard engine.active else { return }
-        engine.discardRecording()
-        try await waitUntil(timeout: 10) { !engine.active }
-    }
-
     private func startedEngine() async throws -> (RecordingEngine, () -> URL?) {
-        let (engine, finished) = try await startedEngineReportingFinish()
-        return (engine, { finished()?.url })
-    }
-
-    private func startedEngineReportingFinish() async throws -> (RecordingEngine, () -> FinishedRecording?) {
         let engine = RecordingEngine()
         self.engine = engine
-        var finished: FinishedRecording?
-        engine.recordingFinishedHandler = { finished = $0 }
+        var finished: URL?
+        engine.recordingFinishedHandler = { finished = $0.url }
         let (rect, screen) = try areaOnMainScreen()
         try await start(engine) { await engine.startRecording(rect: rect, on: screen) }
         return (engine, { finished })
@@ -184,16 +171,6 @@ final class RecordingEngineIntegrationTests: XCTestCase {
         let scale = try XCTUnwrap(NSScreen.main).backingScaleFactor
         XCTAssertEqual(size, CGSize(width: 640 * scale, height: 360 * scale))
 
-        let metadata = try XCTUnwrap(VideoDemoSidecarStore.load(for: url))
-        XCTAssertEqual(metadata.duration, duration, accuracy: 0.2)
-        XCTAssertEqual(metadata.fps, 30)
-        XCTAssertNotNil(metadata.screenActivity, "activity is recorded for idle detection")
-        XCTAssertTrue(metadata.screenActivity?.allSatisfy { $0 >= 0 && $0 <= duration + 0.05 } ?? false)
-        // Pointer samples run on the video's clock: t=0 at the first frame
-        // (a still pointer is sampled every 0.25 s), so they span the video.
-        XCTAssertEqual(metadata.cursorSamples.first?.time ?? -1, 0, accuracy: 0.001)
-        XCTAssertGreaterThan(metadata.cursorSamples.last?.time ?? 0, duration - 0.35)
-        XCTAssertLessThanOrEqual(metadata.cursorSamples.last?.time ?? .infinity, duration + 0.05)
     }
 
     func testPausedTimeIsCutFromTheRecording() async throws {
@@ -212,9 +189,6 @@ final class RecordingEngineIntegrationTests: XCTestCase {
         let url = try XCTUnwrap(finished())
         let duration = try await AVURLAsset(url: url).load(.duration).seconds
         XCTAssertEqual(duration, 2, accuracy: 0.35, "3.5 s of wall time, 1.5 s of it paused")
-        let metadata = try XCTUnwrap(VideoDemoSidecarStore.load(for: url))
-        XCTAssertEqual(metadata.duration, 2, accuracy: 0.35)
-        XCTAssertTrue(metadata.cursorSamples.allSatisfy { $0.time <= metadata.duration + 0.05 }, "pointer data skips the pause too")
     }
 
     func testDiscardLeavesNothingBehind() async throws {
@@ -278,87 +252,10 @@ final class RecordingEngineIntegrationTests: XCTestCase {
         }
     }
 
-    /// The next take started while the last one saves: the last one's editor
-    /// doesn't open over it (it would be recorded and steal focus); the
-    /// panel appears instead and the foreground Stop took goes back.
-    func testNextTakeWaitingForTheSaveDoesntOpenTheLastOnesEditor() async throws {
-        Settings.openVideoEditorAfterRecording = true
-        let (engine, finished) = try await startedEngineReportingFinish()
-        defer { ShotnixEditorActivation.releaseForeground() }
-        try await sleep(1)
-        engine.stopRecording()
-        XCTAssertTrue(ShotnixEditorActivation.isHoldingForeground, "Stop keeps the foreground for the editor")
-        let (rect, screen) = try areaOnMainScreen()
-        await engine.startRecording(rect: rect, on: screen)
-        let first = try XCTUnwrap(finished(), "saved before the new take started")
-        XCTAssertFalse(first.opensEditor, "no editor over the new take")
-        XCTAssertFalse(ShotnixEditorActivation.isHoldingForeground, "and no Dock icon left behind")
-        try await discardIfRecording(engine)
-    }
-
-    /// The same while the next take is only being set up (area selection,
-    /// the recording bar, a countdown).
-    func testTakeFinishingDuringTheNextOnesSetupDoesntOpenItsEditor() async throws {
-        Settings.openVideoEditorAfterRecording = true
-        let (engine, finished) = try await startedEngineReportingFinish()
-        defer { ShotnixEditorActivation.releaseForeground() }
-        try await sleep(1)
-        engine.stopRecording()
-        var settingUp = true
-        engine.nextTakeInProgress = { settingUp }
-        try await waitUntil(timeout: 20) { finished() != nil }
-        XCTAssertEqual(finished()?.opensEditor, false)
-        XCTAssertFalse(ShotnixEditorActivation.isHoldingForeground)
-
-        // Nothing on the way: the editor opens (and ends the hold itself).
-        settingUp = false
-        let firstURL = finished()?.url
-        let (rect, screen) = try areaOnMainScreen()
-        try await start(engine) { await engine.startRecording(rect: rect, on: screen) }
-        try await sleep(1)
-        engine.stopRecording()
-        try await waitUntil(timeout: 20) { finished()?.url != firstURL }
-        XCTAssertEqual(finished()?.opensEditor, true)
-    }
-
-    /// Record pressed while the last take saves: the start runs a moment
-    /// later, and a take finishing in between already counts it.
-    func testTakeFinishingRightAfterRecordIsPressedDoesntOpenItsEditor() async throws {
-        Settings.openVideoEditorAfterRecording = true
-        let (engine, finished) = try await startedEngineReportingFinish()
-        defer { ShotnixEditorActivation.releaseForeground() }
-        try await sleep(1)
-        engine.stopRecording()
-        engine.startWillFollow()
-        try await waitUntil(timeout: 20) { finished() != nil }
-        XCTAssertEqual(finished()?.opensEditor, false)
-        XCTAssertFalse(ShotnixEditorActivation.isHoldingForeground)
-        let (rect, screen) = try areaOnMainScreen()
-        await engine.startRecording(rect: rect, on: screen)
-        try await discardIfRecording(engine)
-    }
-
-    /// Open Editor After Recording turned off during the save: no editor,
-    /// and the foreground taken for it at Stop goes back.
-    func testTurningTheEditorOffDuringTheSaveGivesTheForegroundBack() async throws {
-        Settings.openVideoEditorAfterRecording = true
-        let (engine, finished) = try await startedEngineReportingFinish()
-        defer { ShotnixEditorActivation.releaseForeground() }
-        try await sleep(1)
-        engine.stopRecording()
-        XCTAssertTrue(ShotnixEditorActivation.isHoldingForeground)
-        Settings.openVideoEditorAfterRecording = false
-        try await waitUntil(timeout: 20) { finished() != nil }
-        XCTAssertEqual(finished()?.opensEditor, false)
-        XCTAssertFalse(ShotnixEditorActivation.isHoldingForeground, "no Dock icon left behind")
-    }
-
-    /// A take whose writer failed is checked for what still plays. It counts
-    /// as saving until its data and recovery note are settled, and it only
-    /// clears its own note (not the next take's).
+    /// Salvage stays in the saving state until the playable file is settled.
     func testSalvagedTakeIsSettledBeforeTheEngineGoesIdle() async throws {
         let (engine, finished) = try await startedEngine()
-        let nextTake = RecordingRecoveryNote(videoPath: folder.appendingPathComponent("next.mp4").path, cameraPath: nil, cameraOffset: nil, fps: 30, nativeCursorVisible: false, audioTracks: nil, startedAt: Date())
+        let nextTake = RecordingRecoveryNote(videoPath: folder.appendingPathComponent("next.mp4").path, cameraPath: nil)
         defer { RecordingRecovery.clear() }
         var checked = false
         engine.salvagesNextSaveForTesting = { [unowned engine] in
@@ -376,7 +273,7 @@ final class RecordingEngineIntegrationTests: XCTestCase {
         XCTAssertFalse(engine.active)
         // The first moment the engine looks idle, everything is done.
         let url = try XCTUnwrap(finished(), "announced before going idle")
-        XCTAssertNotNil(VideoDemoSidecarStore.load(for: url), "editor data saved before going idle")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
         XCTAssertEqual(RecordingRecovery.load(), nextTake, "another take's recovery note is left alone")
         let playable = try await AVURLAsset(url: url).load(.isPlayable)
         XCTAssertTrue(playable)
@@ -397,7 +294,7 @@ final class RecordingEngineIntegrationTests: XCTestCase {
         XCTAssertNil(finished(), "quitting: nothing opens")
         let saved = URL(fileURLWithPath: Settings.lastRecordingPath)
         XCTAssertEqual(saved.deletingLastPathComponent().standardizedFileURL, folder.standardizedFileURL)
-        XCTAssertNotNil(VideoDemoSidecarStore.load(for: saved), "its data was written before the quit went ahead")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: saved.path))
         XCTAssertNil(RecordingRecovery.load())
     }
 

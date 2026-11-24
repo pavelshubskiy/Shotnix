@@ -1970,6 +1970,8 @@
 	<string>Записує курсор окремо, щоб редактор міг згладжувати його, змінювати розмір і зберігати чіткість під час наближення.</string>
 	<key>Recovered your interrupted recording “%@”. Click to open it.</key>
 	<string>Ваш перерваний запис «%@» відновлено. Клацніть, щоб відкрити його.</string>
+	<key>Recovered your interrupted recording “%@”. Click to show it in Finder.</key>
+	<string>Перерваний запис «%@» відновлено. Натисніть, щоб показати його у Finder.</string>
 	<key>Rectangle</key>
 	<string>Прямокутник</string>
 	<key>Red</key>
@@ -2598,6 +2600,8 @@ Please enable it in System Settings → Privacy &amp; Security → Screen &amp; 
 	<string>Показати поради редактора</string>
 	<key>Show Folder in Finder</key>
 	<string>Показати папку у Finder</string>
+	<key>Show Last Recording in Finder</key>
+	<string>Показати останній запис у Finder</string>
 	<key>Show Quick Access Overlay</key>
 	<string>Показувати мініатюру швидкого доступу</string>
 	<key>Show Recent Export “%@” in Finder</key>
@@ -2758,6 +2762,8 @@ Please enable it in System Settings → Privacy &amp; Security → Screen &amp; 
 	<string>Зупинити покращення голосу</string>
 	<key>Stop Recording</key>
 	<string>Зупинити запис</string>
+	<key>Stop a recording with %@ from any app — plain Esc stays with the app you're recording.</key>
+	<string>Зупинити запис можна сполученням %@ з будь-якої програми. Окреме натискання Esc обробляє програма, яку ви записуєте.</string>
 	<key>Stop and Close</key>
 	<string>Зупинити й закрити</string>
 	<key>Stop recording</key>
@@ -2860,6 +2866,8 @@ Please enable it in System Settings → Privacy &amp; Security → Screen &amp; 
 	<string>Камера тримає курсор у кадрі й плавно стежить за ним.</string>
 	<key>The camera stopped. The recording continues without it.</key>
 	<string>Камера зупинилася. Запис триває без неї.</string>
+	<key>The countdown gives you a moment after pressing Record; Esc cancels it.</key>
+	<string>Після натискання кнопки запису починається зворотний відлік. Esc скасовує його.</string>
 	<key>The cursor is part of this video</key>
 	<string>Курсор — частина цього відео</string>
 	<key>The export carries on in the background (Esc)</key>

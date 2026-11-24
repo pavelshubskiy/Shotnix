@@ -901,6 +901,9 @@
   "Recovered your interrupted recording “%@”. Click to open it." : {
     "uk" : "Ваш перерваний запис «%@» відновлено. Клацніть, щоб відкрити його."
   },
+  "Recovered your interrupted recording “%@”. Click to show it in Finder." : {
+    "uk" : "Перерваний запис «%@» відновлено. Натисніть, щоб показати його у Finder."
+  },
   "Rectangle" : {
     "uk" : "Прямокутник"
   },
@@ -1099,6 +1102,9 @@
   "Show Editor" : {
     "uk" : "Показати редактор"
   },
+  "Show Last Recording in Finder" : {
+    "uk" : "Показати останній запис у Finder"
+  },
   "Show Quick Access Overlay" : {
     "uk" : "Показувати мініатюру швидкого доступу"
   },
@@ -1153,6 +1159,9 @@
   "Step %lld" : {
     "uk" : "Крок %lld"
   },
+  "Stop a recording with %@ from any app — plain Esc stays with the app you're recording." : {
+    "uk" : "Зупинити запис можна сполученням %@ з будь-якої програми. Окреме натискання Esc обробляє програма, яку ви записуєте."
+  },
   "Storage" : {
     "uk" : "Сховище"
   },
@@ -1194,6 +1203,9 @@
   },
   "Text: %@" : {
     "uk" : "Текст: %@"
+  },
+  "The countdown gives you a moment after pressing Record; Esc cancels it." : {
+    "uk" : "Після натискання кнопки запису починається зворотний відлік. Esc скасовує його."
   },
   "The full report is on your clipboard. Paste it into the email." : {
     "uk" : "Повний звіт скопійовано в буфер обміну. Вставте його в лист."

@@ -79,15 +79,6 @@ final class RecordingBarTests: XCTestCase {
         XCTAssertNil(defaults.object(forKey: "recordingQuality"))
     }
 
-    func testChosenKeycapSettingSurvivesRecord() throws {
-        // Asked for shortcuts; whether or not access has arrived yet, Record keeps the choice.
-        Settings.recordingKeystrokes = true
-        let bar = try makeBar()
-        let record = try XCTUnwrap(RecordingUITestSupport.button(labelled: "Record", in: bar))
-        record.performClick(nil)
-        XCTAssertTrue(Settings.recordingKeystrokes)
-    }
-
     func testSizesAreInPixelsWithAnEstimate() throws {
         let screen = try XCTUnwrap(NSScreen.main)
         let bar = try makeBar()
@@ -202,39 +193,4 @@ final class RecordingBarTests: XCTestCase {
         XCTAssertEqual(outcome, false, "reported once")
     }
 
-    // MARK: Post-recording panel
-
-    func testPostRecordingPanelClosesWithoutATimeout() throws {
-        Settings.overlayTimeout = -1 // "Never"
-        let url = URL(fileURLWithPath: "/tmp/Shotnix Demo.mp4")
-        let screen = try XCTUnwrap(NSScreen.screens.last)
-        VideoDemoPostRecordingPanel.show(videoURL: url, on: screen, openHandler: {})
-        let panel = try XCTUnwrap(VideoDemoPostRecordingPanel.visiblePanel)
-        XCTAssertTrue(panel.isVisible)
-        XCTAssertTrue(screen.visibleFrame.contains(panel.frame), "on the screen the recording was made on")
-        XCTAssertTrue(panel.styleMask.contains(.nonactivatingPanel))
-        try RecordingUITestSupport.writeSnapshot(of: panel, name: "post-recording-panel")
-
-        let close = try XCTUnwrap(RecordingUITestSupport.button(labelled: "Close", in: panel))
-        RecordingUITestSupport.click(close, in: panel)
-        XCTAssertFalse(panel.isVisible)
-        XCTAssertNil(VideoDemoPostRecordingPanel.visiblePanel)
-
-        // Esc, once it has been clicked (key).
-        VideoDemoPostRecordingPanel.show(videoURL: url, on: screen, openHandler: {})
-        let again = try XCTUnwrap(VideoDemoPostRecordingPanel.visiblePanel)
-        again.cancelOperation(nil)
-        XCTAssertFalse(again.isVisible)
-        XCTAssertNil(VideoDemoPostRecordingPanel.visiblePanel)
-    }
-
-    func testEditVideoOpensAndCloses() throws {
-        var opened = 0
-        VideoDemoPostRecordingPanel.show(videoURL: URL(fileURLWithPath: "/tmp/x.mp4"), on: NSScreen.main, openHandler: { opened += 1 })
-        let panel = try XCTUnwrap(VideoDemoPostRecordingPanel.visiblePanel)
-        let edit = try XCTUnwrap(RecordingUITestSupport.allSubviews(of: try XCTUnwrap(panel.contentView)).compactMap { $0 as? NSButton }.first { $0.title == "Edit Video" })
-        edit.performClick(nil)
-        XCTAssertEqual(opened, 1)
-        XCTAssertFalse(panel.isVisible)
-    }
 }

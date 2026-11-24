@@ -26,7 +26,7 @@ final class RecordingHUDTests: XCTestCase {
     private func makeHUD() -> RecordingHUDWindow {
         let hud = RecordingHUDWindow()
         hud.elapsedProvider = { 83 }
-        hud.configure(systemAudio: true, microphone: true, camera: true, keystrokes: true, fps: 60, quality: "High")
+        hud.configure(systemAudio: true, microphone: true, camera: true, fps: 60, quality: "High")
         hud.setFrameOrigin(RecordingUITestSupport.offscreen)
         hud.orderFrontRegardless()
         return hud
@@ -188,7 +188,7 @@ final class RecordingHUDTests: XCTestCase {
         saving.closeHUD()
 
         let plain = RecordingHUDWindow()
-        plain.configure(systemAudio: false, microphone: false, camera: false, keystrokes: false, fps: 30, quality: "Balanced")
+        plain.configure(systemAudio: false, microphone: false, camera: false, fps: 30, quality: "Balanced")
         plain.elapsedProvider = { 5 }
         plain.setFrameOrigin(RecordingUITestSupport.offscreen)
         plain.orderFrontRegardless()

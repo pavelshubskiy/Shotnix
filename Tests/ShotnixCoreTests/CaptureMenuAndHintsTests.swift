@@ -11,6 +11,17 @@ final class CaptureMenuAndHintsTests: XCTestCase {
         _ = NSApplication.shared
     }
 
+    func testMainMenuOffersOnlyTheRemainingCaptureAndRecordingCommands() {
+        let sections = AppDelegate().commandCenterSections(screenCount: 1)
+        let capture = sections.first { $0.id == "capture" }?.actions.map(\.id)
+        let recording = sections.first { $0.id == "record" }?.actions.map(\.id)
+        XCTAssertEqual(capture, ["capture.area", "capture.window", "capture.fullscreen", "capture.scrolling"])
+        XCTAssertEqual(recording, ["record.area", "record.window", "record.fullscreen"])
+        let ids = sections.flatMap { $0.actions.map(\.id) }
+        XCTAssertFalse(ids.contains("tools.video-editor"))
+        XCTAssertFalse(ids.contains("tools.last-recording"))
+    }
+
     func testCaptureAllDisplaysRowOnlyWithSeveralDisplays() throws {
         let delegate = AppDelegate()
         let single = try XCTUnwrap(delegate.commandCenterSections(screenCount: 1).first { $0.id == "capture" })

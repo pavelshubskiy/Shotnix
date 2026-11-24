@@ -307,7 +307,7 @@ final class CaptureLocalizationTests: XCTestCase {
     private func makeHUD() -> RecordingHUDWindow {
         let hud = RecordingHUDWindow()
         hud.elapsedProvider = { 83 }
-        hud.configure(systemAudio: true, microphone: true, camera: true, keystrokes: true, fps: 60, quality: RecordingQuality.high.displayName)
+        hud.configure(systemAudio: true, microphone: true, camera: true, fps: 60, quality: RecordingQuality.high.displayName)
         hud.setFrameOrigin(RecordingUITestSupport.offscreen)
         hud.orderFrontRegardless()
         return hud

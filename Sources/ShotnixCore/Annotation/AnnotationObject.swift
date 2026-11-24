@@ -5,7 +5,14 @@ import AppKit
 enum AnnotationTool: String, CaseIterable {
     case select, arrow, rectangle, filledRectangle, ellipse, line, freehand
     case text, callout, numberedStep, highlighter, freehandHighlighter
-    case blur, pixelate, spotlight, crop
+    case blur, pixelate, spotlight, crop, scanText
+
+    var isAvailableInEditor: Bool {
+        switch self {
+        case .filledRectangle, .numberedStep, .freehandHighlighter, .blur: return false
+        default: return true
+        }
+    }
 
     var icon: String {
         switch self {
@@ -25,6 +32,7 @@ enum AnnotationTool: String, CaseIterable {
         case .pixelate:            return "square.grid.3x3.fill"
         case .spotlight:           return "flashlight.on.fill"
         case .crop:                return "crop"
+        case .scanText:            return "text.viewfinder"
         }
     }
 
@@ -47,6 +55,7 @@ enum AnnotationTool: String, CaseIterable {
         case .pixelate:            return L("Pixelate")
         case .spotlight:           return L("Spotlight")
         case .crop:                return L("Crop")
+        case .scanText:            return L("Select Screenshot Text")
         }
     }
 
@@ -68,6 +77,7 @@ enum AnnotationTool: String, CaseIterable {
         case .pixelate:            return "P"
         case .spotlight:           return "S"
         case .crop:                return "C"
+        case .scanText:            return "X"
         }
     }
 
@@ -92,6 +102,7 @@ enum AnnotationTool: String, CaseIterable {
         case "p": return .pixelate
         case "s": return .spotlight
         case "c": return .crop
+        case "x": return .scanText
         default:  return nil
         }
     }
@@ -883,28 +894,41 @@ final class CalloutAnnotation: AnnotationObject {
         bubbleRect.union(CGRect(origin: tail, size: .zero))
     }
 
-    /// Triangle from just inside the bubble out to the tip; nil while the
-    /// tip is inside the bubble.
+    /// Join one straight edge of the bubble, keeping both sides of the
+    /// tail clear of the rounded corners.
     var tailPath: CGPath? {
         let rect = bubbleRect
         guard !rect.insetBy(dx: -2, dy: -2).contains(tail) else { return nil }
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let dx = tail.x - center.x, dy = tail.y - center.y
-        let length = hypot(dx, dy)
-        guard length > 0 else { return nil }
-        let ux = dx / length, uy = dy / length
-        // Where the center→tip ray leaves the bubble
-        let exitX = ux == 0 ? CGFloat.greatestFiniteMagnitude : (rect.width / 2) / abs(ux)
-        let exitY = uy == 0 ? CGFloat.greatestFiniteMagnitude : (rect.height / 2) / abs(uy)
-        let exit = min(exitX, exitY)
-        let halfWidth = min(max(min(rect.width, rect.height) * 0.22, 6), 14)
-        // Starting the base inside the bubble keeps the join seamless.
-        let baseDistance = max(0, exit - halfWidth - 2)
-        let base = CGPoint(x: center.x + ux * baseDistance, y: center.y + uy * baseDistance)
+
+        let dx = tail.x - rect.midX
+        let dy = tail.y - rect.midY
+        let leftOrRight = abs(dx) * rect.height > abs(dy) * rect.width
+        let edgeLength = leftOrRight ? rect.height : rect.width
+        let halfWidth = min(rect.height * 0.22, 14, edgeLength / 2 - cornerRadius)
+        let margin = cornerRadius + halfWidth
+        let start: CGPoint
+        let end: CGPoint
+        if leftOrRight {
+            let direction: CGFloat = dx > 0 ? 1 : -1
+            let edge = direction * rect.width / 2
+            let y = min(max(rect.midY + dy * edge / dx, rect.minY + margin), rect.maxY - margin)
+            let x = rect.midX + edge - direction
+            start = CGPoint(x: x, y: y - direction * halfWidth)
+            end = CGPoint(x: x, y: y + direction * halfWidth)
+        } else {
+            let direction: CGFloat = dy > 0 ? 1 : -1
+            let edge = direction * rect.height / 2
+            let x = min(max(rect.midX + dx * edge / dy, rect.minX + margin), rect.maxX - margin)
+            let y = rect.midY + edge - direction
+            start = CGPoint(x: x + direction * halfWidth, y: y)
+            end = CGPoint(x: x - direction * halfWidth, y: y)
+        }
+
+        // Match the rounded rectangle’s winding so the overlap stays filled.
         let path = CGMutablePath()
-        path.move(to: CGPoint(x: base.x - uy * halfWidth, y: base.y + ux * halfWidth))
+        path.move(to: start)
         path.addLine(to: tail)
-        path.addLine(to: CGPoint(x: base.x + uy * halfWidth, y: base.y - ux * halfWidth))
+        path.addLine(to: end)
         path.closeSubpath()
         return path
     }
@@ -930,9 +954,9 @@ final class CalloutAnnotation: AnnotationObject {
 
     func contains(point: CGPoint) -> Bool {
         if bubbleRect.insetBy(dx: -4, dy: -4).contains(point) { return true }
-        guard tailPath != nil else { return false }
-        let center = CGPoint(x: bubbleRect.midX, y: bubbleRect.midY)
-        return AnnotationGeometry.distance(from: point, toSegmentFrom: center, to: tail) <= 8
+        guard let tailPath else { return false }
+        return tailPath.contains(point) ||
+            tailPath.copy(strokingWithWidth: 12, lineCap: .round, lineJoin: .round, miterLimit: 1).contains(point)
     }
 
     func move(by delta: CGPoint) {

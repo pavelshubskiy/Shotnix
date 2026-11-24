@@ -361,9 +361,17 @@ final class AnnotationRenderTests: XCTestCase {
         let corner = output.pixel(Int((bubble.minX + 6) * 2), Int((bubble.midY) * 2))
         XCTAssertGreaterThan(corner.b, 200, "bubble is filled with its color")
         XCTAssertLessThan(corner.r, 60)
-        // Along the tail, halfway to the tip
-        let mid = CGPoint(x: (bubble.midX + callout.tail.x) / 2 + 2, y: (bubble.midY + callout.tail.y) / 2)
-        XCTAssertGreaterThan(output.pixel(Int(mid.x * 2), Int(mid.y * 2)).b, 150, "tail is drawn")
+        let tail = try XCTUnwrap(callout.tailPath)
+        // Sample fully inside the shared area that opposite windings used to erase.
+        let joinY = bubble.maxY - 0.5
+        let joinX = try XCTUnwrap((Int(bubble.minX + 12)..<Int(bubble.maxX - 12)).first { x in
+            tail.contains(CGPoint(x: CGFloat(x) + 1, y: joinY)) &&
+                tail.contains(CGPoint(x: CGFloat(x) - 1, y: joinY))
+        })
+        XCTAssertLessThan(output.pixel(joinX * 2, Int(joinY * 2)).r, 60)
+        let midY = (bubble.maxY + callout.tail.y) / 2
+        let midX = (CGFloat(joinX) + callout.tail.x) / 2
+        XCTAssertLessThan(output.pixel(Int(midX * 2), Int(midY * 2)).r, 60, "tail is drawn")
         XCTAssertEqual(output.luminance(460, 300), 255, "outside the callout is untouched")
         // White text inside the blue bubble
         var whiteTextPixels = 0

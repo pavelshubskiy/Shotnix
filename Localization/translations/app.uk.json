@@ -270,9 +270,6 @@
   "Click an annotation to edit it" : {
     "uk" : "Клацніть розмітку, щоб змінити її"
   },
-  "Click to add the next step" : {
-    "uk" : "Клацніть, щоб додати наступний крок"
-  },
   "Clipboard" : {
     "uk" : "Буфер обміну"
   },
@@ -415,8 +412,8 @@
   "Done" : {
     "uk" : "Готово"
   },
-  "Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, B blur, P pixelate, S spotlight, C crop." : {
-    "uk" : "Малюйте вибраним інструментом. Скорочення інструментів: V — вибір, A — стрілка, R — прямокутник, T — текст, O — виноска, H — маркер, B — розмиття, P — пікселізація, S — прожектор, C — обрізання."
+  "Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, P pixelate, S spotlight, C crop, X select screenshot text." : {
+    "uk" : "Малюйте вибраним інструментом. Клавіші інструментів: V — вибір, A — стрілка, R — прямокутник, T — текст, O — виноска, H — маркер, P — пікселізація, S — прожектор, C — обрізання, X — виділення тексту на знімку."
   },
   "Drawing" : {
     "uk" : "Малюнок"
@@ -868,6 +865,9 @@
       "other" : "Готово · %lld необов’язкового вимкнено"
     }
   },
+  "Recognizing text…" : {
+    "uk" : "Розпізнаємо текст…"
+  },
   "Record" : {
     "uk" : "Записати"
   },
@@ -1014,6 +1014,12 @@
   },
   "Select All" : {
     "uk" : "Вибрати все"
+  },
+  "Select Screenshot Text" : {
+    "uk" : "Виділити текст на знімку"
+  },
+  "Select text, then press ⌘C" : {
+    "uk" : "Виділіть текст і натисніть ⌘C"
   },
   "Selection" : {
     "uk" : "Вибір"

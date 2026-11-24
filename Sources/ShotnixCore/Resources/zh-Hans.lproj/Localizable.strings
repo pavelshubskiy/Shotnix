@@ -640,8 +640,6 @@
 	<string>点按音效</string>
 	<key>Click to add a zoom — or press Z at the playhead</key>
 	<string>点按即可添加缩放 — 或在播放头处按下 Z</string>
-	<key>Click to add the next step</key>
-	<string>点按以添加下一步</string>
 	<key>Click volume</key>
 	<string>点按音量</string>
 	<key>Clicks</key>
@@ -994,8 +992,8 @@
 	<string>拖移以调整箭头指向</string>
 	<key>Drag to select, then adjust  ·  Hold ⇧ as you let go to capture right away  ·  Esc cancels</key>
 	<string>拖移以选择，然后调整  ·  松开时按住 ⇧ 可立即捕捉  ·  按 Esc 键取消</string>
-	<key>Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, B blur, P pixelate, S spotlight, C crop.</key>
-	<string>使用所选工具绘制。工具快捷键：V 选择、A 箭头、R 矩形、T 文字、O 标注气泡、H 荧光笔、B 模糊、P 像素化、S 聚光灯、C 裁剪。</string>
+	<key>Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, P pixelate, S spotlight, C crop, X select screenshot text.</key>
+	<string>使用所选工具绘制。工具快捷键：V 选择、A 箭头、R 矩形、T 文字、O 标注气泡、H 荧光笔、P 像素化、S 聚光灯、C 裁剪、X 选择截图中的文字。</string>
 	<key>Drawing</key>
 	<string>手绘</string>
 	<key>Duplicate</key>
@@ -2002,6 +2000,8 @@
 	<string>识别出的文字</string>
 	<key>Recognized text</key>
 	<string>识别出的文字</string>
+	<key>Recognizing text…</key>
+	<string>正在识别文字…</string>
 	<key>Record</key>
 	<string>录制</string>
 	<key>Record (Return)</key>
@@ -2582,6 +2582,8 @@
 	<string>选择</string>
 	<key>Select All</key>
 	<string>全选</string>
+	<key>Select Screenshot Text</key>
+	<string>选择截图中的文字</string>
 	<key>Select a clip, or ⇧-drag across the timeline, to give just that part its own volume or mute it. A clip can also fade in and out.</key>
 	<string>选择一个片段，或按住 ⇧ 拖移时间线，即可单独设置这一部分的音量或将其静音。片段还可以设置淡入淡出。</string>
 	<key>Select a part to cut, or to change its speed or sound</key>
@@ -2592,6 +2594,8 @@
 	<string>选择上一个/下一个项目</string>
 	<key>Select several items</key>
 	<string>选择多个项目</string>
+	<key>Select text, then press ⌘C</key>
+	<string>选中文字，然后按 ⌘C</string>
 	<key>Select the Whole Video</key>
 	<string>选择整个视频</string>
 	<key>Select the whole video</key>

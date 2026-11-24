@@ -1,4 +1,5 @@
 import AppKit
+import VisionKit
 
 /// Manages the full annotation editor window.
 @MainActor
@@ -15,6 +16,15 @@ final class AnnotationWindowController: NSWindowController {
     private let historyItem: HistoryItem?
     private let historyManager: HistoryManager?
     private let scrollView: NSScrollView
+    private let textOverlay = ImageAnalysisOverlayView()
+    private var recognitionTask: Task<Void, Never>?
+    private var recognizedRevision: Int?
+    private var recognitionResult: Result<RecognizedScreenshotText, Error>?
+
+    private enum RecognizedScreenshotText {
+        case liveText(ImageAnalysis)
+        case transcript(OCRResult)
+    }
     /// Set once this session wrote an edit back to the history entry.
     private var didUpdateHistory = false
     private(set) var isClosed = false
@@ -122,6 +132,7 @@ final class AnnotationWindowController: NSWindowController {
     static func open(image: NSImage, historyItem: HistoryItem? = nil, historyManager: HistoryManager? = nil) {
         let controller = AnnotationWindowController(image: image, historyItem: historyItem, historyManager: historyManager)
         openControllers.append(controller)
+        controller.prepareScreenshotText()
         ShotnixEditorActivation.sync()
         NSApp.activate(ignoringOtherApps: true)
         controller.showWindow(nil)
@@ -231,7 +242,15 @@ final class AnnotationWindowController: NSWindowController {
         )
         toolbar.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
 
-        toolbar.onToolChanged              = { [weak self] tool in self?.canvas.activeTool = tool }
+        toolbar.onToolChanged              = { [weak self] tool in
+            guard let self else { return }
+            if tool == .scanText, self.canvas.isSelectingScreenshotText {
+                self.canvas.leaveScreenshotTextSelection()
+            } else {
+                self.canvas.activeTool = tool
+            }
+            self.window?.makeFirstResponder(self.canvas)
+        }
         toolbar.onColorChanged             = { [weak self] color in self?.canvas.setActiveColor(color) }
         toolbar.onLineWidthChanged         = { [weak self] width in self?.canvas.setActiveLineWidth(width) }
         toolbar.onFontSizeChanged          = { [weak self] size in self?.canvas.setActiveFontSize(size) }
@@ -242,20 +261,37 @@ final class AnnotationWindowController: NSWindowController {
         toolbar.onSpotlightShapeChanged    = { [weak self] ellipse in self?.canvas.setSpotlightEllipse(ellipse) }
         toolbar.onApplyCrop                = { [weak self] in self?.canvas.applyCrop() }
         toolbar.onResetCrop                = { [weak self] in self?.canvas.resetCrop() }
-        toolbar.onBackgroundOptionsChanged = { [weak self] options in self?.canvas.setBackgroundOptions(options) }
         toolbar.onSave                     = { [weak self] in self?.save() }
-        toolbar.onCopy                     = { [weak self] in self?.copyToClipboard() }
+        toolbar.onCopy                     = { [weak self] in
+            guard let self else { return }
+            if self.canvas.isSelectingScreenshotText {
+                _ = self.copyScreenshotText()
+            } else {
+                self.copyToClipboard()
+            }
+        }
 
         // Keyboard shortcuts from the canvas (⌘S / ⌘C — no main menu in an LSUIElement app)
         canvas.onSaveRequested = { [weak self] in self?.save() }
         canvas.onCopyRequested = { [weak self] in self?.copyToClipboard() }
+        canvas.onCopyScreenshotText = { [weak self] event in self?.copyScreenshotText(event) == true }
 
         // Keep the toolbar in step with the canvas: keyboard tool switches,
-        // the selection's style, crop state, and undo of backdrop changes.
-        canvas.onToolChanged = { [weak self] tool in self?.toolbar.selectToolExternally(tool) }
+        // the selection's style and crop state.
+        canvas.onToolChanged = { [weak self] tool in
+            guard let self else { return }
+            self.toolbar.selectToolExternally(tool)
+            if tool == .scanText {
+                self.prepareScreenshotText()
+                self.showRecognizedScreenshotText()
+            } else {
+                self.textOverlay.resetSelection()
+                self.textOverlay.removeFromSuperview()
+                self.textOverlay.analysis = nil
+            }
+        }
         canvas.onOptionsChanged = { [weak self] in self?.refreshToolbarOptions() }
         canvas.onCropStateChanged = { [weak self] in self?.refreshToolbarOptions() }
-        canvas.onBackgroundOptionsChanged = { [weak self] options in self?.toolbar.setBackgroundOptionsExternally(options) }
         canvas.onLayoutChanged = { [weak self] refit in
             if refit { self?.fitCanvasToViewport() }
         }
@@ -280,7 +316,6 @@ final class AnnotationWindowController: NSWindowController {
         // (the canvas restored its own state from Settings at init)
         toolbar.selectToolExternally(canvas.activeTool)
         toolbar.setColorExternally(canvas.activeColor)
-        toolbar.setBackgroundOptionsExternally(canvas.backgroundOptions)
         refreshToolbarOptions()
 
         // Fit oversized captures to the visible area on open; smaller images stay at 1:1
@@ -314,6 +349,84 @@ final class AnnotationWindowController: NSWindowController {
         let size = canvas.frame.size
         guard viewport.width > 0, viewport.height > 0, size.width > 0, size.height > 0 else { return }
         scrollView.magnification = min(1, viewport.width / size.width, viewport.height / size.height)
+    }
+
+    // MARK: – Screenshot text
+
+    private func prepareScreenshotText() {
+        let revision = canvas.documentRevision
+        guard recognizedRevision != revision else { return }
+        recognitionTask?.cancel()
+        recognizedRevision = revision
+        recognitionResult = nil
+        // Recognize the visible pixels after edits, including applied crops and redactions.
+        let image = canvas.hasEdits ? canvas.flatten() : canvas.backgroundImage
+        guard let cgImage = image?.bestCGImage else {
+            recognitionResult = .failure(OCREngineError.invalidImage)
+            return
+        }
+        recognitionTask = Task { [weak self] in
+            let result: Result<RecognizedScreenshotText, Error>
+            do {
+                var analysis: ImageAnalysis?
+                if ImageAnalyzer.isSupported {
+                    var configuration = ImageAnalyzer.Configuration(.text)
+                    let supported = Set(ImageAnalyzer.supportedTextRecognitionLanguages)
+                    configuration.locales = Settings.ocrLanguages.filter(supported.contains)
+                    analysis = try? await ImageAnalyzer().analyze(cgImage, orientation: .up, configuration: configuration)
+                }
+                guard !Task.isCancelled else { return }
+                if let analysis, analysis.hasResults(for: .text) {
+                    result = .success(.liveText(analysis))
+                } else {
+                    result = .success(.transcript(try await OCREngine.recognize(in: cgImage)))
+                }
+            } catch {
+                result = .failure(error)
+            }
+            guard !Task.isCancelled, let self else { return }
+            self.recognitionResult = result
+            if self.canvas.isSelectingScreenshotText { self.showRecognizedScreenshotText() }
+        }
+    }
+
+    private func showRecognizedScreenshotText() {
+        toolbar.setScreenshotTextLoading(recognitionResult == nil)
+        guard let recognitionResult else { return }
+        switch recognitionResult {
+        case .success(.liveText(let analysis)):
+            textOverlay.frame = canvas.bounds
+            textOverlay.autoresizingMask = [.width, .height]
+            textOverlay.preferredInteractionTypes = .textSelection
+            textOverlay.setSupplementaryInterfaceHidden(true, animated: false)
+            canvas.addSubview(textOverlay)
+            textOverlay.analysis = analysis
+        case .success(.transcript(let result)):
+            canvas.leaveScreenshotTextSelection()
+            if result.isEmpty {
+                showToast(L("No text found in this selection"), 2)
+            } else {
+                OCRResultWindow.show(result: result, on: window?.screen, alreadyCopied: false)
+            }
+        case .failure:
+            canvas.leaveScreenshotTextSelection()
+            showToast(L("Text recognition failed"), 3)
+        }
+    }
+
+    private func copyScreenshotText(_ event: NSEvent? = nil) -> Bool {
+        guard textOverlay.hasActiveTextSelection else { return false }
+        if #available(macOS 14.0, *) {
+            let text = textOverlay.selectedText
+            guard !text.isEmpty else { return false }
+            NSPasteboard.general.clearContents()
+            if NSPasteboard.general.setString(text, forType: .string) {
+                showToast(L("Text copied to clipboard"), 2)
+            }
+            return true
+        }
+        if let event { return textOverlay.performKeyEquivalent(with: event) }
+        return textOverlay.tryToPerform(#selector(NSText.copy(_:)), with: nil)
     }
 
     // MARK: – Actions
@@ -422,6 +535,7 @@ extension AnnotationWindowController: NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         isClosed = true
+        recognitionTask?.cancel()
         toolbar.detachColorPanel()
         AnnotationWindowController.openControllers.removeAll { $0 === self }
         ShotnixEditorActivation.sync()

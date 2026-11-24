@@ -33,17 +33,21 @@ final class AnnotationCanvas: NSView {
                 // silently commits on the NEXT canvas click, which looks like the
                 // new tool spawned a text annotation out of nowhere.
                 commitTextField()
-                if activeTool == .crop {
-                    beginCropEditing(returningTo: oldValue)
-                } else if oldValue == .crop {
-                    endCropEditing()
+                if oldValue == .crop { endCropEditing() }
+                if isEditingCrop {
+                    beginCropEditing(returningTo: oldValue == .scanText ? toolBeforeScan : oldValue)
+                } else if isSelectingScreenshotText {
+                    toolBeforeScan = oldValue == .crop ? toolBeforeCrop : oldValue
+                    selectedObjects = []
+                    setHoveredObject(nil)
+                    setNeedsDisplay(bounds)
                 }
             }
             window?.invalidateCursorRects(for: self)
             onToolChanged?(activeTool)
             onOptionsChanged?()
             // Reopening the editor straight into crop mode would be confusing.
-            if activeTool != .crop {
+            if !isEditingCrop, !isSelectingScreenshotText, activeTool.isAvailableInEditor {
                 Settings.annotationLastTool = activeTool.rawValue
             }
         }
@@ -76,6 +80,7 @@ final class AnnotationCanvas: NSView {
     var onToolChanged: ((AnnotationTool) -> Void)?
     var onSaveRequested: (() -> Void)?
     var onCopyRequested: (() -> Void)?
+    var onCopyScreenshotText: ((NSEvent) -> Bool)?
     /// Selection, tool, or a tool style changed — the toolbar's options follow.
     var onOptionsChanged: (() -> Void)?
     var onCropStateChanged: (() -> Void)?
@@ -101,6 +106,13 @@ final class AnnotationCanvas: NSView {
     /// The crop being adjusted while the crop tool is active.
     private(set) var pendingCrop: CGRect?
     private var toolBeforeCrop: AnnotationTool = .arrow
+    private var toolBeforeScan: AnnotationTool = .arrow
+
+    var isSelectingScreenshotText: Bool { activeTool == .scanText }
+
+    func leaveScreenshotTextSelection() {
+        if isSelectingScreenshotText { activeTool = toolBeforeScan }
+    }
 
     var isEditingCrop: Bool { activeTool == .crop }
 
@@ -205,7 +217,7 @@ final class AnnotationCanvas: NSView {
     }
 
     private func updateHoverFeedback(at point: CGPoint) {
-        guard activeTextEditor == nil, !isEditingCrop else {
+        guard activeTextEditor == nil, !isEditingCrop, !isSelectingScreenshotText else {
             setHoveredObject(nil)
             return
         }
@@ -264,7 +276,7 @@ final class AnnotationCanvas: NSView {
 
     private var defaultToolCursor: NSCursor {
         switch activeTool {
-        case .select:                                        return .arrow
+        case .select, .scanText:                             return .arrow
         case .arrow, .rectangle, .filledRectangle, .ellipse: return .crosshair
         case .line, .freehand, .highlighter:                 return .crosshair
         case .freehandHighlighter, .spotlight:               return .crosshair
@@ -278,7 +290,7 @@ final class AnnotationCanvas: NSView {
 
     override func resetCursorRects() {
         discardCursorRects()
-        addCursorRect(bounds, cursor: defaultToolCursor)
+        if !isSelectingScreenshotText { addCursorRect(bounds, cursor: defaultToolCursor) }
     }
 
     // MARK: – Drawing
@@ -498,6 +510,7 @@ final class AnnotationCanvas: NSView {
     // MARK: – Mouse
 
     override func mouseDown(with event: NSEvent) {
+        guard !isSelectingScreenshotText else { return }
         let point = documentPoint(for: event)
         // A click on the canvas takes focus from the editor (committing it)
         // before this mouseDown arrives; either way, the click was spent
@@ -564,6 +577,7 @@ final class AnnotationCanvas: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        guard !isSelectingScreenshotText else { return }
         let point = documentPoint(for: event)
 
         if activeTool == .select || isGrabSession {
@@ -586,6 +600,7 @@ final class AnnotationCanvas: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        guard !isSelectingScreenshotText else { return }
         let point = documentPoint(for: event)
 
         if activeTool == .select || isGrabSession {
@@ -1340,7 +1355,8 @@ final class AnnotationCanvas: NSView {
 
     /// Restores the last-used tool and styles from Settings.
     private func restorePersistedStyle() {
-        if let tool = AnnotationTool(rawValue: Settings.annotationLastTool), tool != .crop {
+        if let tool = AnnotationTool(rawValue: Settings.annotationLastTool),
+           tool.isAvailableInEditor, tool != .crop, tool != .scanText {
             activeTool = tool
         }
         if let data = Settings.annotationLastColorData,
@@ -1678,6 +1694,8 @@ final class AnnotationCanvas: NSView {
         case "s":
             onSaveRequested?()
             return true
+        case "c" where isSelectingScreenshotText:
+            return onCopyScreenshotText?(event) == true
         case "w":
             window?.performClose(nil)
             return true
@@ -1695,6 +1713,7 @@ final class AnnotationCanvas: NSView {
         if flags.contains(.command) {
             switch key {
             case "z":
+                leaveScreenshotTextSelection()
                 if flags.contains(.shift) {
                     performRedo()
                 } else {
@@ -1705,6 +1724,10 @@ final class AnnotationCanvas: NSView {
                 onSaveRequested?()
                 return
             case "c":
+                if isSelectingScreenshotText {
+                    _ = onCopyScreenshotText?(event)
+                    return
+                }
                 // Only when no text annotation is being edited — copying inside
                 // an active text field must keep native behavior
                 if activeTextEditor == nil {
@@ -1735,10 +1758,12 @@ final class AnnotationCanvas: NSView {
 
         switch Int(event.keyCode) {
         case kVK_Delete, kVK_ForwardDelete:
-            deleteSelected()
+            if !isSelectingScreenshotText { deleteSelected() }
             return
         case kVK_Escape: // Escape: leave crop editing first, else clear selection
-            if isEditingCrop {
+            if isSelectingScreenshotText {
+                leaveScreenshotTextSelection()
+            } else if isEditingCrop {
                 cancelCropEditing()
             } else if !selectedObjects.isEmpty {
                 selectedObjects = []
@@ -1766,8 +1791,12 @@ final class AnnotationCanvas: NSView {
                 toggleRoundedCorners()
                 return
             }
-            if let tool = AnnotationTool.forShortcut(key, shift: flags.contains(.shift)) {
-                activeTool = tool
+            if let tool = AnnotationTool.forShortcut(key, shift: flags.contains(.shift)), tool.isAvailableInEditor {
+                if tool == .scanText, isSelectingScreenshotText {
+                    leaveScreenshotTextSelection()
+                } else {
+                    activeTool = tool
+                }
                 return
             }
         }
@@ -1872,7 +1901,7 @@ final class AnnotationCanvas: NSView {
     }
 
     override func accessibilityHelp() -> String? {
-        L("Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, B blur, P pixelate, S spotlight, C crop.")
+        L("Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, P pixelate, S spotlight, C crop, X select screenshot text.")
     }
 
     override func accessibilityChildren() -> [Any]? {
@@ -1963,7 +1992,7 @@ struct AnnotationToolOptions: Equatable {
 
     static func context(for tool: AnnotationTool) -> Context {
         switch tool {
-        case .select, .numberedStep:                                        return .none
+        case .select, .numberedStep, .scanText:                                        return .none
         case .arrow, .ellipse, .line, .freehand, .highlighter, .freehandHighlighter: return .stroke
         case .rectangle, .filledRectangle:                                  return .rectangle
         case .text, .callout:                                               return .text

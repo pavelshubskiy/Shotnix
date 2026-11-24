@@ -36,9 +36,9 @@ final class OCRResultWindow: NSWindow, NSWindowDelegate {
         return parts.isEmpty ? nil : parts.dropFirst().reduce(parts[0]) { list, part in L("\(list), \(part)") }
     }
 
-    static func show(result: OCRResult, on screen: NSScreen? = nil) {
+    static func show(result: OCRResult, on screen: NSScreen? = nil, alreadyCopied: Bool = true) {
         current?.close()
-        let window = OCRResultWindow(result: result)
+        let window = OCRResultWindow(result: result, alreadyCopied: alreadyCopied)
         current = window
         // On the display the text was captured from.
         if let visible = (screen ?? NSScreen.main)?.visibleFrame {
@@ -50,7 +50,7 @@ final class OCRResultWindow: NSWindow, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
-    init(result: OCRResult) {
+    init(result: OCRResult, alreadyCopied: Bool = true) {
         self.result = result
         let linkRows = min(result.links.count, Self.maxLinkRows)
         let width: CGFloat = 520
@@ -68,10 +68,10 @@ final class OCRResultWindow: NSWindow, NSWindowDelegate {
         level = .floating
         delegate = self
         center()
-        buildContent(width: width, height: height)
+        buildContent(width: width, height: height, alreadyCopied: alreadyCopied)
     }
 
-    private func buildContent(width: CGFloat, height: CGFloat) {
+    private func buildContent(width: CGFloat, height: CGFloat, alreadyCopied: Bool) {
         let background = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         background.wantsLayer = true
         background.themed { $0.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor }
@@ -91,7 +91,7 @@ final class OCRResultWindow: NSWindow, NSWindowDelegate {
         icon.contentTintColor = .controlAccentColor
         iconWrap.addSubview(icon)
 
-        let titleLabel = NSTextField(labelWithString: L("Text copied to clipboard"))
+        let titleLabel = NSTextField(labelWithString: alreadyCopied ? L("Text copied to clipboard") : L("Recognized Text"))
         titleLabel.font = .boldSystemFont(ofSize: 19)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.frame = NSRect(x: 78, y: height - 68, width: width - 102, height: 24)
@@ -154,6 +154,7 @@ final class OCRResultWindow: NSWindow, NSWindowDelegate {
         textView.setAccessibilityLabel(L("Recognized text"))
         scroll.documentView = textView
         card.addSubview(scroll)
+        if !alreadyCopied { initialFirstResponder = textView }
 
         // Right to left, 6 pt apart; each button fits its title (English
         // keeps its widths).

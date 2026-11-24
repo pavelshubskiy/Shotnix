@@ -7,9 +7,9 @@ import UniformTypeIdentifiers
 final class AnnotationToolbar: NSView {
 
     static let toolGroups: [[AnnotationTool]] = [
-        [.select, .arrow, .rectangle, .filledRectangle, .ellipse, .line, .freehand],
-        [.text, .callout, .numberedStep, .highlighter, .freehandHighlighter],
-        [.blur, .pixelate, .spotlight, .crop],
+        [.select, .arrow, .rectangle, .ellipse, .line, .freehand],
+        [.text, .callout, .highlighter, .scanText],
+        [.pixelate, .spotlight, .crop],
     ]
     // Geometry. Everything sits on the dock's midline, and the insets are
     // concentric: 8 pt from the dock's edge to each group, 3 pt from a group's
@@ -39,11 +39,6 @@ final class AnnotationToolbar: NSView {
     /// translation needs more than the design width.
     private static let titleInset: CGFloat = 8
 
-    /// 110 pt, or wider when the title needs it (English always fits).
-    private static var backgroundButtonWidth: CGFloat {
-        fittedWidth(L("Background"), font: prominentActionFont, atLeast: 110)
-    }
-
     /// Copy and Save share one width: 54 pt, or what the longer title needs.
     private static var actionButtonWidth: CGFloat {
         max(fittedWidth(L("Copy"), font: actionFont, atLeast: 54),
@@ -68,8 +63,8 @@ final class AnnotationToolbar: NSView {
     /// Grows with the action buttons' titles in the user's language.
     static var requiredWidth: CGFloat {
         let tools = toolGroups.reduce(0) { $0 + toolGroupWidth($1.count) + groupSpacing }
-        // Background, gap, Copy, gap, Save
-        let actions = backgroundButtonWidth + 8 + actionButtonWidth + 4 + actionButtonWidth
+        // Copy, gap, Save
+        let actions = actionButtonWidth + 4 + actionButtonWidth
         return edgeInset + tools + optionsGroupWidth + groupSpacing + actions + edgeInset
     }
 
@@ -86,7 +81,6 @@ final class AnnotationToolbar: NSView {
     var onCopy: (() -> Void)?
     var onApplyCrop: (() -> Void)?
     var onResetCrop: (() -> Void)?
-    var onBackgroundOptionsChanged: ((ScreenshotBackgroundOptions) -> Void)?
 
     private var toolButtons: [AnnotationTool: NSButton] = [:]
     /// Group backgrounds, left to right, and the last control's right edge
@@ -95,12 +89,11 @@ final class AnnotationToolbar: NSView {
     private(set) var trailingControlMaxX: CGFloat = 0
     private var selectedTool: AnnotationTool = .arrow
     private var colorButton: NSButton?
+    private var copyButton: NSButton?
     private var currentColor: NSColor = .systemRed
     private var colorPopover: NSPopover?
-    private var backgroundButton: NSButton?
-    private var backgroundPopover: NSPopover?
-    private var backgroundOptions = ScreenshotBackgroundOptions.editorDefault
     private(set) var options = AnnotationToolOptions()
+    private var screenshotTextLoading = false
 
     // Contextual options
     private let optionsContainer = NSView()
@@ -217,17 +210,6 @@ final class AnnotationToolbar: NSView {
         buildOptionControls()
         x += Self.optionsWidth - Self.optionsTrailing + Self.colorInset + Self.groupSpacing
 
-        let backgroundWidth = Self.backgroundButtonWidth
-        let backgroundBtn = PremiumToolbarActionButton(title: L("Background"), target: self, action: #selector(backgroundTapped(_:)))
-        backgroundBtn.bezelStyle = .regularSquare
-        backgroundBtn.font = Self.prominentActionFont
-        backgroundBtn.imagePosition = .noImage
-        backgroundBtn.toolTip = L("Background")
-        backgroundBtn.frame = NSRect(x: x, y: controlY, width: backgroundWidth, height: Self.controlHeight)
-        addSubview(backgroundBtn)
-        backgroundButton = backgroundBtn
-        x += backgroundWidth + 8
-
         // Action buttons
         let actionWidth = Self.actionButtonWidth
         let actions: [(title: String, action: Selector, help: String, font: NSFont)] = [
@@ -241,6 +223,7 @@ final class AnnotationToolbar: NSView {
             btn.frame = NSRect(x: x, y: controlY, width: actionWidth, height: Self.controlHeight)
             btn.toolTip = item.help
             addSubview(btn)
+            if item.action == #selector(copyTapped) { copyButton = btn }
             trailingControlMaxX = btn.frame.maxX
             x += actionWidth + 4
         }
@@ -366,9 +349,14 @@ final class AnnotationToolbar: NSView {
             resetCropButton.frame = NSRect(x: end - reset, y: 10, width: reset, height: 30)
             visible = [applyCropButton, resetCropButton]
         case .none:
-            showHint(selectedTool == .numberedStep ? L("Click to add the next step") : L("Click an annotation to edit it"), width: end)
+            let hint = screenshotTextLoading ? L("Recognizing text…") : L("Select text, then press ⌘C")
+            showHint(selectedTool == .scanText ? hint : L("Click an annotation to edit it"), width: end)
             visible = [hintLabel]
         }
+        colorButton?.isHidden = selectedTool == .scanText
+        let copyHelp = selectedTool == .scanText ? L("Copy recognized text (OCR)") : L("Copy (\u{2318}C)")
+        copyButton?.toolTip = copyHelp
+        copyButton?.setAccessibilityHelp(copyHelp)
         for control in optionControls {
             control.isHidden = !visible.contains(where: { $0 === control })
         }
@@ -384,6 +372,11 @@ final class AnnotationToolbar: NSView {
         resetCropButton.isEnabled = newOptions.canResetCrop
         applyCropButton.alphaValue = newOptions.canApplyCrop ? 1 : 0.45
         resetCropButton.alphaValue = newOptions.canResetCrop ? 1 : 0.45
+    }
+
+    func setScreenshotTextLoading(_ loading: Bool) {
+        screenshotTextLoading = loading
+        showOptions(options)
     }
 
     /// A label's design width, or the width its translation needs plus a
@@ -507,11 +500,6 @@ final class AnnotationToolbar: NSView {
         currentColor = color
         colorButton?.layer?.backgroundColor = color.cgColor
         colorButton?.setAccessibilityValue(Self.colorName(color))
-    }
-
-    func setBackgroundOptionsExternally(_ options: ScreenshotBackgroundOptions) {
-        backgroundOptions = options
-        backgroundButton?.contentTintColor = options.isEnabled ? .controlAccentColor : NSColor.labelColor.withAlphaComponent(0.86)
     }
 
     /// Accessibility helpers for tests: the control a VoiceOver user reaches.
@@ -647,26 +635,6 @@ final class AnnotationToolbar: NSView {
     @objc private func applyCropTapped() { onApplyCrop?() }
     @objc private func resetCropTapped() { onResetCrop?() }
 
-    @objc private func backgroundTapped(_ sender: NSButton) {
-        if !backgroundOptions.isEnabled {
-            backgroundOptions.isEnabled = true
-            backgroundButton?.contentTintColor = .controlAccentColor
-            onBackgroundOptionsChanged?(backgroundOptions)
-        }
-
-        let controller = BackgroundPopoverController(options: backgroundOptions)
-        controller.onChange = { [weak self] options in
-            self?.backgroundOptions = options
-            self?.backgroundButton?.contentTintColor = options.isEnabled ? .controlAccentColor : NSColor.labelColor.withAlphaComponent(0.86)
-            self?.onBackgroundOptionsChanged?(options)
-        }
-        let popover = NSPopover()
-        popover.contentViewController = controller
-        popover.behavior = .transient
-        controller.popover = popover
-        popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
-        backgroundPopover = popover
-    }
     @objc private func copyTapped()       { onCopy?() }
     @objc private func saveTapped()       { onSave?() }
 }

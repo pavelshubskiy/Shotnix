@@ -321,18 +321,22 @@ final class AnnotationWindowControllerTests: XCTestCase {
         let toolbar = controller.toolbar
         XCTAssertEqual(toolbar.accessibilityRole(), .toolbar)
         for tool in AnnotationTool.allCases {
+            guard tool.isAvailableInEditor else {
+                XCTAssertNil(toolbar.toolButton(for: tool))
+                continue
+            }
             let button = try XCTUnwrap(toolbar.toolButton(for: tool), "\(tool) is in the toolbar")
             XCTAssertEqual(button.accessibilityLabel(), tool.name)
             XCTAssertEqual(button.accessibilityRole(), .radioButton)
         }
-        controller.canvas.activeTool = .blur
-        XCTAssertEqual(toolbar.toolButton(for: .blur)?.accessibilityValue() as? NSNumber, 1, "the active tool reads as selected")
+        controller.canvas.activeTool = .pixelate
+        XCTAssertEqual(toolbar.toolButton(for: .pixelate)?.accessibilityValue() as? NSNumber, 1, "the active tool reads as selected")
         XCTAssertEqual(toolbar.toolButton(for: .arrow)?.accessibilityValue() as? NSNumber, 0)
         XCTAssertEqual(toolbar.colorControl?.accessibilityLabel(), "Color")
         XCTAssertEqual(toolbar.colorControl?.accessibilityValue() as? String, AnnotationToolbar.colorName(controller.canvas.activeColor))
 
         let visible = toolbar.visibleOptionControls.compactMap { $0.accessibilityLabel() }
-        XCTAssertTrue(visible.contains("Redaction strength"), "blur shows a labeled strength control: \(visible)")
+        XCTAssertTrue(visible.contains("Redaction strength"), "pixelation shows a labeled strength control: \(visible)")
 
         controller.canvas.activeTool = .text
         XCTAssertTrue(toolbar.visibleOptionControls.compactMap { $0.accessibilityLabel() }.contains("Text size"))

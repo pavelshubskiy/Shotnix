@@ -574,8 +574,6 @@
 	<string>Звуки нажатий</string>
 	<key>Click to add a zoom — or press Z at the playhead</key>
 	<string>Нажмите, чтобы добавить увеличение, — или нажмите Z у указателя воспроизведения</string>
-	<key>Click to add the next step</key>
-	<string>Нажмите, чтобы добавить следующий шаг</string>
 	<key>Click volume</key>
 	<string>Громкость нажатий</string>
 	<key>Clicks</key>
@@ -920,8 +918,8 @@
 	<string>Перетяните, чтобы направить стрелку</string>
 	<key>Drag to select, then adjust  ·  Hold ⇧ as you let go to capture right away  ·  Esc cancels</key>
 	<string>Выделите область и настройте ее  ·  ⇧ при отпускании — снять сразу  ·  Esc — отмена</string>
-	<key>Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, B blur, P pixelate, S spotlight, C crop.</key>
-	<string>Рисуйте выбранным инструментом. Клавиши инструментов: V — выбор, A — стрелка, R — прямоугольник, T — текст, O — выноска, H — маркер, B — размытие, P — пикселизация, S — прожектор, C — обрезка.</string>
+	<key>Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, P pixelate, S spotlight, C crop, X select screenshot text.</key>
+	<string>Рисуйте выбранным инструментом. Клавиши инструментов: V — выбор, A — стрелка, R — прямоугольник, T — текст, O — выноска, H — маркер, P — пикселизация, S — прожектор, C — обрезка, X — выделение текста на снимке.</string>
 	<key>Drawing</key>
 	<string>Рисунок</string>
 	<key>Duplicate</key>
@@ -1902,6 +1900,8 @@
 	<string>Распознанный текст</string>
 	<key>Recognized text</key>
 	<string>Распознанный текст</string>
+	<key>Recognizing text…</key>
+	<string>Распознаём текст…</string>
 	<key>Record</key>
 	<string>Записать</string>
 	<key>Record (Return)</key>
@@ -2460,6 +2460,8 @@
 	<string>Выбор</string>
 	<key>Select All</key>
 	<string>Выбрать все</string>
+	<key>Select Screenshot Text</key>
+	<string>Выделить текст на снимке</string>
 	<key>Select a clip, or ⇧-drag across the timeline, to give just that part its own volume or mute it. A clip can also fade in and out.</key>
 	<string>Выберите клип или выделите фрагмент на шкале времени, перетянув с ⇧, чтобы задать только ему свою громкость или выключить его звук. Для клипа можно также настроить нарастание и затухание.</string>
 	<key>Select a part to cut, or to change its speed or sound</key>
@@ -2470,6 +2472,8 @@
 	<string>Выбрать предыдущий / следующий объект</string>
 	<key>Select several items</key>
 	<string>Выбрать несколько объектов</string>
+	<key>Select text, then press ⌘C</key>
+	<string>Выделите текст и нажмите ⌘C</string>
 	<key>Select the Whole Video</key>
 	<string>Выделить все видео</string>
 	<key>Select the whole video</key>

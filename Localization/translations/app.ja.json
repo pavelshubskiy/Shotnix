@@ -329,9 +329,6 @@
   "Click an annotation to edit it" : {
     "ja" : "注釈をクリックして編集"
   },
-  "Click to add the next step" : {
-    "ja" : "クリックで次のステップを追加"
-  },
   "Clipboard" : {
     "ja" : "クリップボード"
   },
@@ -488,8 +485,8 @@
   "Done" : {
     "ja" : "完了"
   },
-  "Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, B blur, P pixelate, S spotlight, C crop." : {
-    "ja" : "選択したツールで描画します。ツールのショートカット: V（選択）、A（矢印）、R（長方形）、T（テキスト）、O（吹き出し）、H（蛍光ペン）、B（ぼかし）、P（モザイク）、S（スポットライト）、C（切り取り）。"
+  "Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, P pixelate, S spotlight, C crop, X select screenshot text." : {
+    "ja" : "選択したツールで描画します。ショートカット：V 選択、A 矢印、R 長方形、T テキスト、O 吹き出し、H マーカー、P モザイク、S スポットライト、C 切り取り、X スクリーンショットのテキストを選択。"
   },
   "Drawing" : {
     "ja" : "描画"
@@ -953,6 +950,9 @@
   "Ready · %lld optional off" : {
     "ja" : "準備完了 · 任意の%lld件は未設定"
   },
+  "Recognizing text…" : {
+    "ja" : "テキストを認識中…"
+  },
   "Record" : {
     "ja" : "収録"
   },
@@ -1135,6 +1135,12 @@
   },
   "Select All" : {
     "ja" : "すべてを選択"
+  },
+  "Select Screenshot Text" : {
+    "ja" : "スクリーンショットのテキストを選択"
+  },
+  "Select text, then press ⌘C" : {
+    "ja" : "テキストを選択して ⌘C"
   },
   "Selection" : {
     "ja" : "選択範囲"

@@ -15704,46 +15704,6 @@
         }
       }
     },
-    "Click to add the next step" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Klicke, um den nächsten Schritt hinzuzufügen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cliquez pour ajouter l’étape suivante"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "クリックで次のステップを追加"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Нажмите, чтобы добавить следующий шаг"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Клацніть, щоб додати наступний крок"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "点按以添加下一步"
-          }
-        }
-      }
-    },
     "Click volume" : {
       "localizations" : {
         "de" : {
@@ -23185,42 +23145,42 @@
         }
       }
     },
-    "Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, B blur, P pixelate, S spotlight, C crop." : {
+    "Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, P pixelate, S spotlight, C crop, X select screenshot text." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mit dem ausgewählten Werkzeug zeichnen. Kurzbefehle: V Auswählen, A Pfeil, R Rechteck, T Text, O Sprechblase, H Textmarker, B Weichzeichnen, P Verpixeln, S Fokus, C Beschneiden."
+            "value" : "Mit dem ausgewählten Werkzeug zeichnen. Kurzbefehle: V Auswählen, A Pfeil, R Rechteck, T Text, O Sprechblase, H Textmarker, P Verpixeln, S Fokus, C Beschneiden, X Screenshot-Text auswählen."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dessinez avec l’outil sélectionné. Raccourcis des outils : V sélection, A flèche, R rectangle, T texte, O bulle, H surligneur, B flou, P pixélisation, S projecteur, C rognage."
+            "value" : "Dessinez avec l’outil sélectionné. Raccourcis des outils : V sélection, A flèche, R rectangle, T texte, O bulle, H surligneur, P pixélisation, S projecteur, C rognage, X sélection du texte de la capture."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "選択したツールで描画します。ツールのショートカット: V（選択）、A（矢印）、R（長方形）、T（テキスト）、O（吹き出し）、H（蛍光ペン）、B（ぼかし）、P（モザイク）、S（スポットライト）、C（切り取り）。"
+            "value" : "選択したツールで描画します。ショートカット：V 選択、A 矢印、R 長方形、T テキスト、O 吹き出し、H マーカー、P モザイク、S スポットライト、C 切り取り、X スクリーンショットのテキストを選択。"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Рисуйте выбранным инструментом. Клавиши инструментов: V — выбор, A — стрелка, R — прямоугольник, T — текст, O — выноска, H — маркер, B — размытие, P — пикселизация, S — прожектор, C — обрезка."
+            "value" : "Рисуйте выбранным инструментом. Клавиши инструментов: V — выбор, A — стрелка, R — прямоугольник, T — текст, O — выноска, H — маркер, P — пикселизация, S — прожектор, C — обрезка, X — выделение текста на снимке."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Малюйте вибраним інструментом. Скорочення інструментів: V — вибір, A — стрілка, R — прямокутник, T — текст, O — виноска, H — маркер, B — розмиття, P — пікселізація, S — прожектор, C — обрізання."
+            "value" : "Малюйте вибраним інструментом. Клавіші інструментів: V — вибір, A — стрілка, R — прямокутник, T — текст, O — виноска, H — маркер, P — пікселізація, S — прожектор, C — обрізання, X — виділення тексту на знімку."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "使用所选工具绘制。工具快捷键：V 选择、A 箭头、R 矩形、T 文字、O 标注气泡、H 荧光笔、B 模糊、P 像素化、S 聚光灯、C 裁剪。"
+            "value" : "使用所选工具绘制。工具快捷键：V 选择、A 箭头、R 矩形、T 文字、O 标注气泡、H 荧光笔、P 像素化、S 聚光灯、C 裁剪、X 选择截图中的文字。"
           }
         }
       }
@@ -44599,6 +44559,46 @@
         }
       }
     },
+    "Recognizing text…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text wird erkannt…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnaissance du texte…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "テキストを認識中…"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Распознаём текст…"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Розпізнаємо текст…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在识别文字…"
+          }
+        }
+      }
+    },
     "Record" : {
       "comment" : "Starts a screen recording (verb)",
       "localizations" : {
@@ -57223,6 +57223,46 @@
         }
       }
     },
+    "Select Screenshot Text" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text im Screenshot auswählen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionner le texte de la capture"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スクリーンショットのテキストを選択"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выделить текст на снимке"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Виділити текст на знімку"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择截图中的文字"
+          }
+        }
+      }
+    },
     "Select a clip, or ⇧-drag across the timeline, to give just that part its own volume or mute it. A clip can also fade in and out." : {
       "comment" : "Hint at the bottom of the video editor's Audio tab",
       "localizations" : {
@@ -57421,6 +57461,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择多个项目"
+          }
+        }
+      }
+    },
+    "Select text, then press ⌘C" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text auswählen, dann ⌘C"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionnez le texte, puis ⌘C"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "テキストを選択して ⌘C"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выделите текст и нажмите ⌘C"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Виділіть текст і натисніть ⌘C"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选中文字，然后按 ⌘C"
           }
         }
       }

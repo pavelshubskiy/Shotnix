@@ -576,8 +576,6 @@
 	<string>Звуки клацання</string>
 	<key>Click to add a zoom — or press Z at the playhead</key>
 	<string>Клацніть, щоб додати наближення, — або натисніть Z на покажчику відтворення</string>
-	<key>Click to add the next step</key>
-	<string>Клацніть, щоб додати наступний крок</string>
 	<key>Click volume</key>
 	<string>Гучність клацань</string>
 	<key>Clicks</key>
@@ -922,8 +920,8 @@
 	<string>Перетягніть, щоб спрямувати стрілку</string>
 	<key>Drag to select, then adjust  ·  Hold ⇧ as you let go to capture right away  ·  Esc cancels</key>
 	<string>Перетягніть, щоб вибрати, а потім налаштуйте  ·  Утримуйте ⇧, коли відпускаєте, щоб зняти одразу  ·  Esc — скасувати</string>
-	<key>Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, B blur, P pixelate, S spotlight, C crop.</key>
-	<string>Малюйте вибраним інструментом. Скорочення інструментів: V — вибір, A — стрілка, R — прямокутник, T — текст, O — виноска, H — маркер, B — розмиття, P — пікселізація, S — прожектор, C — обрізання.</string>
+	<key>Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, P pixelate, S spotlight, C crop, X select screenshot text.</key>
+	<string>Малюйте вибраним інструментом. Клавіші інструментів: V — вибір, A — стрілка, R — прямокутник, T — текст, O — виноска, H — маркер, P — пікселізація, S — прожектор, C — обрізання, X — виділення тексту на знімку.</string>
 	<key>Drawing</key>
 	<string>Малюнок</string>
 	<key>Duplicate</key>
@@ -1904,6 +1902,8 @@
 	<string>Розпізнаний текст</string>
 	<key>Recognized text</key>
 	<string>Розпізнаний текст</string>
+	<key>Recognizing text…</key>
+	<string>Розпізнаємо текст…</string>
 	<key>Record</key>
 	<string>Записати</string>
 	<key>Record (Return)</key>
@@ -2462,6 +2462,8 @@
 	<string>Вибір</string>
 	<key>Select All</key>
 	<string>Вибрати все</string>
+	<key>Select Screenshot Text</key>
+	<string>Виділити текст на знімку</string>
 	<key>Select a clip, or ⇧-drag across the timeline, to give just that part its own volume or mute it. A clip can also fade in and out.</key>
 	<string>Виберіть кліп або виділіть проміжок на шкалі часу, перетягнувши з ⇧, щоб задати лише йому власну гучність або вимкнути його звук. Для кліпу можна також додати плавну появу й зникнення.</string>
 	<key>Select a part to cut, or to change its speed or sound</key>
@@ -2472,6 +2474,8 @@
 	<string>Вибрати попередній/наступний елемент</string>
 	<key>Select several items</key>
 	<string>Вибрати кілька елементів</string>
+	<key>Select text, then press ⌘C</key>
+	<string>Виділіть текст і натисніть ⌘C</string>
 	<key>Select the Whole Video</key>
 	<string>Виділити все відео</string>
 	<key>Select the whole video</key>

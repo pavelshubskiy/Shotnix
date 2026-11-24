@@ -302,8 +302,8 @@
   },
   "Automatic appearance" : {
     "comment" : "Appearance choice, shown as \"Auto\": follows the Mac. The word macOS uses in System Settings > Appearance",
-    "en" : "Auto",
     "de" : "Automatisch",
+    "en" : "Auto",
     "fr" : "Automatique",
     "zh-Hans" : "自动"
   },
@@ -482,11 +482,6 @@
     "fr" : "Cliquez sur une annotation pour la modifier",
     "zh-Hans" : "点按标注即可编辑"
   },
-  "Click to add the next step" : {
-    "de" : "Klicke, um den nächsten Schritt hinzuzufügen",
-    "fr" : "Cliquez pour ajouter l’étape suivante",
-    "zh-Hans" : "点按以添加下一步"
-  },
   "Clipboard" : {
     "de" : "Zwischenablage",
     "fr" : "Presse-papiers",
@@ -634,8 +629,8 @@
   },
   "Dark appearance" : {
     "comment" : "Appearance choice, shown as \"Dark\". The word macOS uses in System Settings > Appearance",
-    "en" : "Dark",
     "de" : "Dunkel",
+    "en" : "Dark",
     "fr" : "Sombre",
     "zh-Hans" : "深色"
   },
@@ -737,10 +732,10 @@
     "fr" : "Terminé",
     "zh-Hans" : "完成"
   },
-  "Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, B blur, P pixelate, S spotlight, C crop." : {
-    "de" : "Mit dem ausgewählten Werkzeug zeichnen. Kurzbefehle: V Auswählen, A Pfeil, R Rechteck, T Text, O Sprechblase, H Textmarker, B Weichzeichnen, P Verpixeln, S Fokus, C Beschneiden.",
-    "fr" : "Dessinez avec l’outil sélectionné. Raccourcis des outils : V sélection, A flèche, R rectangle, T texte, O bulle, H surligneur, B flou, P pixélisation, S projecteur, C rognage.",
-    "zh-Hans" : "使用所选工具绘制。工具快捷键：V 选择、A 箭头、R 矩形、T 文字、O 标注气泡、H 荧光笔、B 模糊、P 像素化、S 聚光灯、C 裁剪。"
+  "Draw with the selected tool. Tool shortcuts: V select, A arrow, R rectangle, T text, O callout, H highlighter, P pixelate, S spotlight, C crop, X select screenshot text." : {
+    "de" : "Mit dem ausgewählten Werkzeug zeichnen. Kurzbefehle: V Auswählen, A Pfeil, R Rechteck, T Text, O Sprechblase, H Textmarker, P Verpixeln, S Fokus, C Beschneiden, X Screenshot-Text auswählen.",
+    "fr" : "Dessinez avec l’outil sélectionné. Raccourcis des outils : V sélection, A flèche, R rectangle, T texte, O bulle, H surligneur, P pixélisation, S projecteur, C rognage, X sélection du texte de la capture.",
+    "zh-Hans" : "使用所选工具绘制。工具快捷键：V 选择、A 箭头、R 矩形、T 文字、O 标注气泡、H 荧光笔、P 像素化、S 聚光灯、C 裁剪、X 选择截图中的文字。"
   },
   "Drawing" : {
     "de" : "Zeichnung",
@@ -1194,8 +1189,8 @@
   },
   "Light appearance" : {
     "comment" : "Appearance choice, shown as \"Light\". The word macOS uses in System Settings > Appearance",
-    "en" : "Light",
     "de" : "Hell",
+    "en" : "Light",
     "fr" : "Clair",
     "zh-Hans" : "浅色"
   },
@@ -1536,6 +1531,11 @@
     },
     "zh-Hans" : "就绪 · %lld 个可选快捷键未设置"
   },
+  "Recognizing text…" : {
+    "de" : "Text wird erkannt…",
+    "fr" : "Reconnaissance du texte…",
+    "zh-Hans" : "正在识别文字…"
+  },
   "Record" : {
     "comment" : "Starts a screen recording (verb)",
     "de" : "Aufzeichnen",
@@ -1790,6 +1790,16 @@
     "fr" : "Tout sélectionner",
     "zh-Hans" : "全选"
   },
+  "Select Screenshot Text" : {
+    "de" : "Text im Screenshot auswählen",
+    "fr" : "Sélectionner le texte de la capture",
+    "zh-Hans" : "选择截图中的文字"
+  },
+  "Select text, then press ⌘C" : {
+    "de" : "Text auswählen, dann ⌘C",
+    "fr" : "Sélectionnez le texte, puis ⌘C",
+    "zh-Hans" : "选中文字，然后按 ⌘C"
+  },
   "Selection" : {
     "de" : "Auswahl",
     "fr" : "Sélection",
@@ -1853,8 +1863,8 @@
   },
   "Shotnix appearance" : {
     "comment" : "General setting, shown as \"Appearance\": light, dark, or like the Mac. The name macOS uses for it",
-    "en" : "Appearance",
     "de" : "Erscheinungsbild",
+    "en" : "Appearance",
     "fr" : "Apparence",
     "zh-Hans" : "外观"
   },

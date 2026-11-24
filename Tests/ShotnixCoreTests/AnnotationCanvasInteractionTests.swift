@@ -277,6 +277,34 @@ final class AnnotationCanvasInteractionTests: XCTestCase {
         window.sendEvent(event(type, at: viewPoint))
     }
 
+    func testScreenshotTextDragFromMarginSurvivesRecognition() {
+        let selection = ScreenshotTextSelectionView(frame: canvas.bounds)
+        canvas.addSubview(selection)
+        let start = CGPoint(x: 43, y: 47)
+        let end = CGPoint(x: 160, y: 63)
+        selection.mouseDown(with: event(.leftMouseDown, at: start))
+        selection.mouseDragged(with: event(.leftMouseDragged, at: end))
+        selection.mouseUp(with: event(.leftMouseUp, at: end))
+        XCTAssertTrue(selection.selectedText.isEmpty)
+
+        var first = OCRLine(text: "LongWord fits here", box: CGRect(x: 100, y: 100, width: 330, height: 40))
+        first.words = [
+            OCRWord(text: "LongWord", box: CGRect(x: 100, y: 100, width: 180, height: 40)),
+            OCRWord(text: "fits", box: CGRect(x: 300, y: 100, width: 30, height: 40)),
+            OCRWord(text: "here", box: CGRect(x: 350, y: 100, width: 80, height: 40)),
+        ]
+        let second = OCRLine(text: "Next line", box: CGRect(x: 100, y: 160, width: 130, height: 40))
+        selection.configure(lines: [first, second], imageSize: CGSize(width: 800, height: 600))
+        XCTAssertEqual(selection.selectedText, "LongWord fits")
+
+        // Start in the second line and drag backward into the end of a long word.
+        selection.mouseDown(with: event(.leftMouseDown, at: CGPoint(x: 75, y: 90)))
+        selection.mouseDragged(with: event(.leftMouseDragged, at: CGPoint(x: 138, y: 60)))
+        selection.mouseUp(with: event(.leftMouseUp, at: CGPoint(x: 138, y: 60)))
+        XCTAssertEqual(selection.selectedText, "LongWord fits here\nNext line")
+        XCTAssertFalse(canvas.hasUnsavedChanges)
+    }
+
     private func drag(from start: CGPoint, to end: CGPoint) {
         canvas.mouseDown(with: event(.leftMouseDown, at: start))
         let mid = CGPoint(x: (start.x + end.x) / 2, y: (start.y + end.y) / 2)

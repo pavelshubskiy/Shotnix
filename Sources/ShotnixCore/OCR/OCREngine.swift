@@ -5,6 +5,12 @@ enum OCREngineError: Error {
     case invalidImage
 }
 
+struct OCRWord: Equatable {
+    let text: String
+    /// Image pixels, with a top-left origin.
+    let box: CGRect
+}
+
 /// One recognized line, in image pixels with a top-left origin.
 struct OCRLine: Equatable {
     let text: String
@@ -14,6 +20,7 @@ struct OCRLine: Equatable {
     var textHeight: CGFloat
     /// Baseline tilt in radians, positive when it runs down to the right.
     var angle: CGFloat
+    var words: [OCRWord] = []
 
     init(text: String, box: CGRect, textHeight: CGFloat? = nil, angle: CGFloat = 0) {
         self.text = text
@@ -71,6 +78,7 @@ enum OCREngine {
 
     struct Options: Equatable {
         var fast = false
+        var includeWordBounds = false
         /// BCP-47 codes; empty = detect automatically.
         var languages: [String] = []
 
@@ -105,20 +113,33 @@ enum OCREngine {
                     let text = candidate.string.trimmingCharacters(in: .whitespaces)
                     guard !text.isEmpty else { return nil }
                     // Vision boxes are normalized with a bottom-left origin.
-                    let box = observation.boundingBox
+                    func pixelRect(_ box: CGRect) -> CGRect {
+                        CGRect(x: box.minX * width, y: (1 - box.maxY) * height, width: box.width * width, height: box.height * height)
+                    }
                     func pixels(_ a: CGPoint, _ b: CGPoint) -> CGVector {
                         CGVector(dx: (b.x - a.x) * width, dy: (b.y - a.y) * height)
                     }
                     let baseline = pixels(observation.bottomLeft, observation.bottomRight)
                     let leftEdge = pixels(observation.bottomLeft, observation.topLeft)
                     let rightEdge = pixels(observation.bottomRight, observation.topRight)
-                    return OCRLine(
-                        text: text,
-                        box: CGRect(x: box.minX * width, y: (1 - box.maxY) * height, width: box.width * width, height: box.height * height),
+                    var line = OCRLine(
+                        text: text, box: pixelRect(observation.boundingBox),
                         textHeight: (hypot(leftEdge.dx, leftEdge.dy) + hypot(rightEdge.dx, rightEdge.dy)) / 2,
                         // Vision's y points up; ours points down.
                         angle: -atan2(baseline.dy, baseline.dx)
                     )
+                    if options.includeWordBounds {
+                        let parts = candidate.string.split(whereSeparator: \.isWhitespace)
+                        let words = parts.compactMap { part -> OCRWord? in
+                            guard let bounds = try? candidate.boundingBox(for: part.startIndex..<part.endIndex) else { return nil }
+                            let box = pixelRect(bounds.boundingBox)
+                            guard !box.isEmpty else { return nil }
+                            return OCRWord(text: String(part), box: box)
+                        }
+                        // Keep the complete line if Vision can't locate one of its words.
+                        line.words = words.count == parts.count ? words : []
+                    }
+                    return line
                 }
                 continuation.resume(returning: lines)
             }

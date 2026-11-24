@@ -1,5 +1,4 @@
 import AppKit
-import VisionKit
 
 /// Manages the full annotation editor window.
 @MainActor
@@ -16,15 +15,10 @@ final class AnnotationWindowController: NSWindowController {
     private let historyItem: HistoryItem?
     private let historyManager: HistoryManager?
     private let scrollView: NSScrollView
-    private let textOverlay = ImageAnalysisOverlayView()
+    private var textOverlay: ScreenshotTextSelectionView { canvas.screenshotTextSelection }
     private var recognitionTask: Task<Void, Never>?
     private var recognizedRevision: Int?
-    private var recognitionResult: Result<RecognizedScreenshotText, Error>?
-
-    private enum RecognizedScreenshotText {
-        case liveText(ImageAnalysis)
-        case transcript(OCRResult)
-    }
+    private var recognitionResult: Result<Bool, Error>?
     /// Set once this session wrote an edit back to the history entry.
     private var didUpdateHistory = false
     private(set) var isClosed = false
@@ -39,6 +33,7 @@ final class AnnotationWindowController: NSWindowController {
 
     /// Puts an exported image on the clipboard and says whether it got there.
     var copyImage: (NSImage) -> Bool = { ImageExporter.copyToClipboard(image: $0) }
+    var textPasteboard = NSPasteboard.general
     var showToast: (_ message: String, _ duration: TimeInterval) -> Void = { ToastWindow.show(message: $0, duration: $1) }
     /// Asks what to do with unsaved changes before closing; nil shows the
     /// standard sheet. Tests answer directly.
@@ -274,7 +269,11 @@ final class AnnotationWindowController: NSWindowController {
         // Keyboard shortcuts from the canvas (⌘S / ⌘C — no main menu in an LSUIElement app)
         canvas.onSaveRequested = { [weak self] in self?.save() }
         canvas.onCopyRequested = { [weak self] in self?.copyToClipboard() }
-        canvas.onCopyScreenshotText = { [weak self] event in self?.copyScreenshotText(event) == true }
+        canvas.onCopyScreenshotText = { [weak self] in self?.copyScreenshotText() == true }
+        canvas.onSelectAllScreenshotText = { [weak self] in self?.textOverlay.selectAllText() }
+        textOverlay.onCopyRequested = { [weak self] in _ = self?.copyScreenshotText() }
+        textOverlay.wantsLayer = true
+        textOverlay.autoresizingMask = [.width, .height]
 
         // Keep the toolbar in step with the canvas: keyboard tool switches,
         // the selection's style and crop state.
@@ -282,12 +281,13 @@ final class AnnotationWindowController: NSWindowController {
             guard let self else { return }
             self.toolbar.selectToolExternally(tool)
             if tool == .scanText {
+                self.textOverlay.frame = self.canvas.bounds
+                if self.textOverlay.superview == nil { self.canvas.addSubview(self.textOverlay) }
                 self.prepareScreenshotText()
-                self.showRecognizedScreenshotText()
-            } else {
-                self.textOverlay.resetSelection()
+                self.updateScreenshotTextStatus()
+            } else if self.textOverlay.superview != nil {
+                self.textOverlay.reset()
                 self.textOverlay.removeFromSuperview()
-                self.textOverlay.analysis = nil
             }
         }
         canvas.onOptionsChanged = { [weak self] in self?.refreshToolbarOptions() }
@@ -359,74 +359,52 @@ final class AnnotationWindowController: NSWindowController {
         recognitionTask?.cancel()
         recognizedRevision = revision
         recognitionResult = nil
+        textOverlay.configure(lines: [], imageSize: .zero)
         // Recognize the visible pixels after edits, including applied crops and redactions.
         let image = canvas.hasEdits ? canvas.flatten() : canvas.backgroundImage
         guard let cgImage = image?.bestCGImage else {
             recognitionResult = .failure(OCREngineError.invalidImage)
             return
         }
+        var options = OCREngine.Options.current
+        options.includeWordBounds = true
+        let imageSize = CGSize(width: cgImage.width, height: cgImage.height)
         recognitionTask = Task { [weak self] in
-            let result: Result<RecognizedScreenshotText, Error>
             do {
-                var analysis: ImageAnalysis?
-                if ImageAnalyzer.isSupported {
-                    var configuration = ImageAnalyzer.Configuration(.text)
-                    let supported = Set(ImageAnalyzer.supportedTextRecognitionLanguages)
-                    configuration.locales = Settings.ocrLanguages.filter(supported.contains)
-                    analysis = try? await ImageAnalyzer().analyze(cgImage, orientation: .up, configuration: configuration)
-                }
-                guard !Task.isCancelled else { return }
-                if let analysis, analysis.hasResults(for: .text) {
-                    result = .success(.liveText(analysis))
-                } else {
-                    result = .success(.transcript(try await OCREngine.recognize(in: cgImage)))
-                }
+                let result = try await OCREngine.recognize(in: cgImage, options: options)
+                guard !Task.isCancelled, let self else { return }
+                self.textOverlay.configure(lines: result.lines, imageSize: imageSize)
+                self.recognitionResult = .success(!result.isEmpty)
             } catch {
-                result = .failure(error)
+                guard !Task.isCancelled, let self else { return }
+                self.recognitionResult = .failure(error)
             }
-            guard !Task.isCancelled, let self else { return }
-            self.recognitionResult = result
-            if self.canvas.isSelectingScreenshotText { self.showRecognizedScreenshotText() }
+            if let self, self.canvas.isSelectingScreenshotText { self.updateScreenshotTextStatus() }
         }
     }
 
-    private func showRecognizedScreenshotText() {
+    private func updateScreenshotTextStatus() {
         toolbar.setScreenshotTextLoading(recognitionResult == nil)
-        guard let recognitionResult else { return }
         switch recognitionResult {
-        case .success(.liveText(let analysis)):
-            textOverlay.frame = canvas.bounds
-            textOverlay.autoresizingMask = [.width, .height]
-            textOverlay.preferredInteractionTypes = .textSelection
-            textOverlay.setSupplementaryInterfaceHidden(true, animated: false)
-            canvas.addSubview(textOverlay)
-            textOverlay.analysis = analysis
-        case .success(.transcript(let result)):
+        case nil, .success(true):
+            break
+        case .success(false):
             canvas.leaveScreenshotTextSelection()
-            if result.isEmpty {
-                showToast(L("No text found in this selection"), 2)
-            } else {
-                OCRResultWindow.show(result: result, on: window?.screen, alreadyCopied: false)
-            }
+            showToast(L("No text found in this selection"), 2)
         case .failure:
             canvas.leaveScreenshotTextSelection()
             showToast(L("Text recognition failed"), 3)
         }
     }
 
-    private func copyScreenshotText(_ event: NSEvent? = nil) -> Bool {
-        guard textOverlay.hasActiveTextSelection else { return false }
-        if #available(macOS 14.0, *) {
-            let text = textOverlay.selectedText
-            guard !text.isEmpty else { return false }
-            NSPasteboard.general.clearContents()
-            if NSPasteboard.general.setString(text, forType: .string) {
-                showToast(L("Text copied to clipboard"), 2)
-            }
-            return true
+    private func copyScreenshotText() -> Bool {
+        let text = textOverlay.selectedText
+        guard !text.isEmpty else { return false }
+        textPasteboard.clearContents()
+        if textPasteboard.setString(text, forType: .string) {
+            showToast(L("Text copied to clipboard"), 2)
         }
-        if let event { return textOverlay.performKeyEquivalent(with: event) }
-        return textOverlay.tryToPerform(#selector(NSText.copy(_:)), with: nil)
+        return true
     }
 
     // MARK: – Actions

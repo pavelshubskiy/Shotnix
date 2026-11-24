@@ -80,7 +80,8 @@ final class AnnotationCanvas: NSView {
     var onToolChanged: ((AnnotationTool) -> Void)?
     var onSaveRequested: (() -> Void)?
     var onCopyRequested: (() -> Void)?
-    var onCopyScreenshotText: ((NSEvent) -> Bool)?
+    var onCopyScreenshotText: (() -> Bool)?
+    var onSelectAllScreenshotText: (() -> Void)?
     /// Selection, tool, or a tool style changed — the toolbar's options follow.
     var onOptionsChanged: (() -> Void)?
     var onCropStateChanged: (() -> Void)?
@@ -95,6 +96,7 @@ final class AnnotationCanvas: NSView {
     private var lastDragPoint: CGPoint?
 
     private let renderer = AnnotationRenderer()
+    let screenshotTextSelection = ScreenshotTextSelectionView()
 
     // MARK: – Document (everything besides objects that the export shows)
 
@@ -290,7 +292,7 @@ final class AnnotationCanvas: NSView {
 
     override func resetCursorRects() {
         discardCursorRects()
-        if !isSelectingScreenshotText { addCursorRect(bounds, cursor: defaultToolCursor) }
+        addCursorRect(bounds, cursor: isSelectingScreenshotText ? .iBeam : defaultToolCursor)
     }
 
     // MARK: – Drawing
@@ -509,8 +511,15 @@ final class AnnotationCanvas: NSView {
 
     // MARK: – Mouse
 
+    override func menu(for event: NSEvent) -> NSMenu? {
+        isSelectingScreenshotText ? screenshotTextSelection.menu(for: event) : super.menu(for: event)
+    }
+
     override func mouseDown(with event: NSEvent) {
-        guard !isSelectingScreenshotText else { return }
+        if isSelectingScreenshotText {
+            screenshotTextSelection.mouseDown(with: event)
+            return
+        }
         let point = documentPoint(for: event)
         // A click on the canvas takes focus from the editor (committing it)
         // before this mouseDown arrives; either way, the click was spent
@@ -577,7 +586,10 @@ final class AnnotationCanvas: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard !isSelectingScreenshotText else { return }
+        if isSelectingScreenshotText {
+            screenshotTextSelection.mouseDragged(with: event)
+            return
+        }
         let point = documentPoint(for: event)
 
         if activeTool == .select || isGrabSession {
@@ -600,7 +612,10 @@ final class AnnotationCanvas: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        guard !isSelectingScreenshotText else { return }
+        if isSelectingScreenshotText {
+            screenshotTextSelection.mouseUp(with: event)
+            return
+        }
         let point = documentPoint(for: event)
 
         if activeTool == .select || isGrabSession {
@@ -1695,7 +1710,10 @@ final class AnnotationCanvas: NSView {
             onSaveRequested?()
             return true
         case "c" where isSelectingScreenshotText:
-            return onCopyScreenshotText?(event) == true
+            return onCopyScreenshotText?() == true
+        case "a" where isSelectingScreenshotText:
+            onSelectAllScreenshotText?()
+            return true
         case "w":
             window?.performClose(nil)
             return true
@@ -1723,9 +1741,12 @@ final class AnnotationCanvas: NSView {
             case "s":
                 onSaveRequested?()
                 return
+            case "a" where isSelectingScreenshotText:
+                onSelectAllScreenshotText?()
+                return
             case "c":
                 if isSelectingScreenshotText {
-                    _ = onCopyScreenshotText?(event)
+                    _ = onCopyScreenshotText?()
                     return
                 }
                 // Only when no text annotation is being edited — copying inside

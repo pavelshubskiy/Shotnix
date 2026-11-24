@@ -26,13 +26,6 @@ enum ShotnixColors {
         }
     }
 
-    static let cornerButtonBackground = NSColor(name: "cornerButton") { appearance in
-        switch appearance.bestMatch(from: [.aqua, .darkAqua]) {
-        case .darkAqua: return NSColor.white.withAlphaComponent(0.18)
-        default:        return NSColor.black.withAlphaComponent(0.12)
-        }
-    }
-
     static let cornerButtonHover = NSColor(name: "cornerButtonHover") { appearance in
         switch appearance.bestMatch(from: [.aqua, .darkAqua]) {
         case .darkAqua: return NSColor.white.withAlphaComponent(0.35)
@@ -44,34 +37,6 @@ enum ShotnixColors {
         switch appearance.bestMatch(from: [.aqua, .darkAqua]) {
         case .darkAqua: return NSColor.white.withAlphaComponent(0.45)
         default:        return NSColor.black.withAlphaComponent(0.30)
-        }
-    }
-
-    static let pillButtonBackground = NSColor(name: "pillButton") { appearance in
-        switch appearance.bestMatch(from: [.aqua, .darkAqua]) {
-        case .darkAqua: return NSColor.white.withAlphaComponent(0.92)
-        default:        return NSColor.white.withAlphaComponent(0.95)
-        }
-    }
-
-    static let pillButtonHover = NSColor(name: "pillButtonHover") { appearance in
-        switch appearance.bestMatch(from: [.aqua, .darkAqua]) {
-        case .darkAqua: return NSColor.white
-        default:        return NSColor.white
-        }
-    }
-
-    static let pillButtonPressed = NSColor(name: "pillButtonPressed") { appearance in
-        switch appearance.bestMatch(from: [.aqua, .darkAqua]) {
-        case .darkAqua: return NSColor.white.withAlphaComponent(0.75)
-        default:        return NSColor.white.withAlphaComponent(0.75)
-        }
-    }
-
-    static let pillButtonText = NSColor(name: "pillButtonText") { appearance in
-        switch appearance.bestMatch(from: [.aqua, .darkAqua]) {
-        case .darkAqua: return NSColor.black.withAlphaComponent(0.85)
-        default:        return NSColor.black.withAlphaComponent(0.85)
         }
     }
 

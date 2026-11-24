@@ -90,6 +90,9 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
 
     /// Keep strong refs so ARC doesn't deallocate while visible.
     private static var openWindows: [QuickAccessWindow] = []
+    private static let previewSize = CGSize(width: 240, height: 150)
+    private static let toolbarHeight: CGFloat = 38
+    private static let progressHeight: CGFloat = 2
 
     private var dismissTimer: Timer?
     private var keyMonitor: Any?
@@ -100,7 +103,6 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
     private let historyManager: HistoryManager
     private let image: NSImage
     private var anchor: CGPoint?
-    private var controlsOverlay: NSView?
     private weak var timeoutProgressLayer: CALayer?
     private var isHovered = false
     private var mouseInsideOverlay = false
@@ -112,20 +114,14 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         self.historyManager = historyManager
         self.anchor = anchor
 
-        let thumbW: CGFloat = 240
-        let thumbH: CGFloat = 150
-        // Use an integer value so the controls overlay placed above it sits on an integer pixel boundary
-        // This prevents CoreAnimation from subpixel blending straight edges against the frosted glass.
-        let progressH: CGFloat = 2.0
-        let totalH = thumbH + progressH
-
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: thumbW, height: totalH),
+            contentRect: NSRect(x: 0, y: 0, width: Self.previewSize.width,
+                                height: Self.previewSize.height + Self.toolbarHeight + Self.progressHeight),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-        // Its buttons sit on the screenshot itself: drawn for a dark surface.
+        // The action bar uses the same dark appearance as the other capture HUDs.
         staysDark()
         isOpaque = false
         backgroundColor = .clear
@@ -136,7 +132,7 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 
-        buildContent(thumbW: thumbW, thumbH: thumbH, progressH: progressH, totalH: totalH)
+        buildContent()
         positionOverlay()
         installEventMonitors()
     }
@@ -299,8 +295,8 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         return NSImage(cgImage: scaled, size: size)
     }
 
-    private func buildContent(thumbW: CGFloat, thumbH: CGFloat, progressH: CGFloat, totalH: CGFloat) {
-        let container = OverlayContentView(frame: NSRect(x: 0, y: 0, width: thumbW, height: totalH))
+    private func buildContent() {
+        let container = OverlayContentView(frame: NSRect(origin: .zero, size: frame.size))
         container.wantsLayer = true
         container.layer?.cornerRadius = 12
         container.layer?.cornerCurve = .continuous
@@ -330,17 +326,9 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         borderView.layer?.borderColor = ShotnixColors.overlayBorder.hudCGColor
         container.addSubview(borderView)
 
-        // Draggable thumbnail — drag to Finder/apps, double-click to annotate.
-        // Dark container fill goes on the thumb's own layer so letterbox bars
-        // read as a proper container without inserting an extra opaque subview
-        // that can interfere with hit-testing on the controls overlay above.
-        let thumbFrame = NSRect(x: 0, y: progressH, width: thumbW, height: thumbH)
-
-        // ── Full-bleed capture: fixed card size, and the
-        // screenshot scaled to FILL the entire card — center-cropped when the
-        // aspect differs, zoomed up when the capture is smaller than the
-        // card. Bold and instantly readable; the card's own rounded corners
-        // and border do all the framing.
+        // The whole preview is the drag target. Actions live below it.
+        let thumbFrame = NSRect(origin: CGPoint(x: 0, y: Self.toolbarHeight + Self.progressHeight),
+                                size: Self.previewSize)
         let thumb = DraggableImageView(frame: thumbFrame)
         thumb.image = crispPreviewImage(for: image, filling: thumbFrame.size)
         thumb.imageScaling = .scaleProportionallyUpOrDown
@@ -357,95 +345,12 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         thumb.onDragCompleted = { [weak self] in self?.animatedClose() }
         clipView.addSubview(thumb)
 
-        // Controls overlay — frosted glass + corner circles + center pills
-        let controls = OverlayControlsView(frame: NSRect(x: 0, y: progressH, width: thumbW, height: thumbH))
-        controls.wantsLayer = true
-
-        // Frosted glass backdrop
-        let frost = NSVisualEffectView(frame: controls.bounds)
-        frost.material = .hudWindow
-        frost.blendingMode = .behindWindow
-        frost.state = .active
-        controls.addSubview(frost)
-
-        // ── Corner circles (28px glass buttons, all 4 corners) ──
-        let cSize: CGFloat = 28
-        let cMargin: CGFloat = 8
-        let cConfig = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
-
-        let corners: [(String, String, Selector, CGFloat, CGFloat)] = [
-            ("pencil",  L("Edit"),   #selector(editAction),    cMargin,                   thumbH - cSize - cMargin),
-            ("xmark",   L("Close"),  #selector(dismissAction), thumbW - cSize - cMargin,  thumbH - cSize - cMargin),
-            ("trash",   L("Delete"), #selector(deleteAction),  cMargin,                   cMargin),
-            ("pin",     L("Pin"),    #selector(pinAction),     thumbW - cSize - cMargin,  cMargin),
-        ]
-        let screenScale = NSScreen.main?.backingScaleFactor ?? 2.0
-        for (icon, tip, sel, cx, cy) in corners {
-            let btn = OverlayCornerButton(frame: NSRect(x: cx, y: cy, width: cSize, height: cSize))
-            btn.image = NSImage(systemSymbolName: icon, accessibilityDescription: tip)?.withSymbolConfiguration(cConfig)
-            btn.bezelStyle = .regularSquare
-            btn.isBordered = false
-            btn.toolTip = tip
-            btn.target = self
-            btn.action = sel
-            btn.imageScaling = .scaleNone
-            btn.contentTintColor = .white
-            btn.wantsLayer = true
-            btn.layer?.contentsScale = screenScale
-            btn.layer?.cornerRadius = cSize / 2
-            btn.layer?.cornerCurve = .continuous
-            btn.layer?.backgroundColor = ShotnixColors.cornerButtonBackground.hudCGColor
-            controls.addSubview(btn)
-        }
-
-        // ── Center pills (tight-fit white capsules) ──
-        let pillH: CGFloat = 28
-        let pills: [(String, String, Selector)] = [
-            (L("Copy"), L("Copy image to clipboard"), #selector(copyAction)),
-            (L("Save"), L("Save screenshot to disk"), #selector(saveAction)),
-            (L("Text"), L("Copy recognized text (OCR)"), #selector(copyTextAction)),
-        ]
-        let pillFont = NSFont.systemFont(ofSize: Self.pillFontSize(titles: pills.map(\.0), available: thumbW - 24), weight: .medium)
-        let pillAttrs: [NSAttributedString.Key: Any] = [
-            .foregroundColor: NSColor.black.withAlphaComponent(0.85),
-            .font: pillFont,
-        ]
-
-        // Measure each pill to fit text snugly. Longer words (Enregistrer)
-        // trade padding for room, so the row stays clear of the card's edges.
-        let textWidths = pills.map { title, _, _ in
-            ceil((title as NSString).size(withAttributes: pillAttrs).width)
-        }
-        let (pillPadding, pillGap) = Self.pillSpacing(textWidths: textWidths, available: thumbW - 24)
-        let pillWidths = textWidths.map { $0 + pillPadding }
-        let totalPillW = pillWidths.reduce(0, +) + CGFloat(pills.count - 1) * pillGap
-        let pillY = round((thumbH - pillH) / 2)
-        var pillCursorX = round((thumbW - totalPillW) / 2)
-
-        let retinaScale = NSScreen.main?.backingScaleFactor ?? 2.0
-        for (i, (title, tip, sel)) in pills.enumerated() {
-            let pw = pillWidths[i]
-            let pill = OverlayPillButton(frame: NSRect(x: pillCursorX, y: pillY, width: pw, height: pillH))
-            pill.attributedTitle = NSAttributedString(string: title, attributes: pillAttrs)
-            pill.toolTip = tip
-            pill.target = self
-            pill.action = sel
-            pill.layer?.contentsScale = retinaScale
-            pill.layer?.cornerRadius = pillH / 2
-            pill.layer?.cornerCurve = .continuous
-            pill.layer?.backgroundColor = ShotnixColors.pillButtonBackground.hudCGColor
-            controls.addSubview(pill)
-            pillCursorX += pw + pillGap
-        }
-
-        controls.alphaValue = 0
-        clipView.addSubview(controls)
-        controlsOverlay = controls
+        clipView.addSubview(makeToolbar())
 
         // Progress bar at the very bottom — thin, bright accent line
         let timeout = Settings.overlayTimeout
         if timeout > 0 {
-            let progressBg = NSView(frame: NSRect(x: 0, y: 0, width: thumbW, height: progressH))
+            let progressBg = NSView(frame: NSRect(x: 0, y: 0, width: Self.previewSize.width, height: Self.progressHeight))
             progressBg.wantsLayer = true
             progressBg.layer?.backgroundColor = ShotnixColors.progressBackground.hudCGColor
             clipView.addSubview(progressBg)
@@ -454,7 +359,7 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
             progressFill.wantsLayer = true
             progressFill.layer?.backgroundColor = NSColor.controlAccentColor.hudCGColor
             progressFill.layer?.anchorPoint = CGPoint(x: 0, y: 0.5)
-            progressFill.layer?.position = CGPoint(x: 0, y: progressH / 2)
+            progressFill.layer?.position = CGPoint(x: 0, y: Self.progressHeight / 2)
             progressBg.addSubview(progressFill)
             timeoutProgressLayer = progressFill.layer
 
@@ -466,36 +371,47 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         }
     }
 
-    /// The pills' title size: the design's 13 pt, or a little smaller (down to
-    /// 11) when the words don't fit `available` even at the tightest spacing
-    /// (Скопировать · Сохранить · Текст).
-    nonisolated static func pillFontSize(titles: [String], available: CGFloat) -> CGFloat {
-        let gaps = CGFloat(max(titles.count - 1, 0))
-        let room = available - CGFloat(titles.count) * 14 - gaps * 4
-        var size: CGFloat = 13
-        while size > 11 {
-            let font = NSFont.systemFont(ofSize: size, weight: .medium)
-            if titles.map({ TextFitting.width(of: $0, font: font) }).reduce(0, +) <= room { break }
-            size -= 0.5
+    private func makeToolbar() -> NSView {
+        let bar = NSView(frame: NSRect(x: 0, y: Self.progressHeight, width: Self.previewSize.width, height: Self.toolbarHeight))
+        bar.wantsLayer = true
+        bar.layer?.backgroundColor = ShotnixColors.overlayContainerFill.withAlphaComponent(1).hudCGColor
+
+        let actions: [(symbol: String, label: String, selector: Selector)] = [
+            ("doc.on.doc", L("Copy image to clipboard"), #selector(copyAction)),
+            ("square.and.arrow.down", L("Save screenshot to disk"), #selector(saveAction)),
+            ("pencil", L("Edit"), #selector(editAction)),
+            ("text.viewfinder", L("Copy recognized text (OCR)"), #selector(copyTextAction)),
+            ("pin", L("Pin"), #selector(pinAction)),
+            ("trash", L("Delete"), #selector(deleteAction)),
+            ("xmark", L("Close"), #selector(dismissAction)),
+        ]
+        let symbol = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        let buttonWidth: CGFloat = 30
+        let gap: CGFloat = 2
+        let groupGap: CGFloat = 6
+        let rowWidth = CGFloat(actions.count) * buttonWidth + CGFloat(actions.count - 1) * gap + groupGap
+        var x = (bar.bounds.width - rowWidth) / 2
+        for (index, action) in actions.enumerated() {
+            if index == 5 {
+                let divider = PassthroughView(frame: NSRect(x: x + 2, y: 11, width: 1, height: 16))
+                divider.wantsLayer = true
+                divider.layer?.backgroundColor = ShotnixColors.overlayBorder.hudCGColor
+                bar.addSubview(divider)
+                x += groupGap
+            }
+            let button = OverlayToolbarButton(frame: NSRect(x: x, y: 3, width: buttonWidth, height: 32))
+            button.image = NSImage(systemSymbolName: action.symbol, accessibilityDescription: nil)?.withSymbolConfiguration(symbol)
+            button.setAccessibilityLabel(action.label)
+            button.toolTip = action.label
+            button.target = self
+            button.action = action.selector
+            bar.addSubview(button)
+            x += buttonWidth + gap
         }
-        return size
+        return bar
     }
 
-    /// Padding inside each pill and the gap between them: the design's 28
-    /// and 8 while the row fits `available`, then less of each (down to 14
-    /// and 4) for longer words.
-    nonisolated static func pillSpacing(textWidths: [CGFloat], available: CGFloat) -> (padding: CGFloat, gap: CGFloat) {
-        let count = CGFloat(textWidths.count)
-        let gaps = CGFloat(max(textWidths.count - 1, 0))
-        let text = textWidths.reduce(0, +)
-        guard count > 0, text + count * 28 + gaps * 8 > available else { return (28, 8) }
-        let spare = max(0, available - text)
-        let padding = max(14, min(28, (spare - gaps * 4) / count))
-        let gap = gaps > 0 ? max(4, min(8, (spare - count * padding) / gaps)) : 0
-        return (padding, gap)
-    }
-
-    /// Shows the controls (and pauses the dismiss timer) while hovered.
+    /// Pauses the dismiss timer while the pointer is over the panel.
     func setHovered(_ hovered: Bool) {
         guard hovered != isHovered else { return }
         isHovered = hovered
@@ -512,11 +428,6 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
                     DispatchQueue.main.async { self?.closeAfterTimeout() }
                 }
             }
-        }
-
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.2
-            controlsOverlay?.animator().alphaValue = hovered ? 1 : 0
         }
     }
 
@@ -871,7 +782,7 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         let size: CGFloat = 36
         let badge = NSImageView(frame: NSRect(
             x: (clip.bounds.width - size) / 2,
-            y: (clip.bounds.height - size) / 2,
+            y: Self.toolbarHeight + Self.progressHeight + (Self.previewSize.height - size) / 2,
             width: size, height: size
         ))
         let config = NSImage.SymbolConfiguration(pointSize: 24, weight: .bold)
@@ -1043,92 +954,18 @@ private final class PassthroughView: NSView {
 }
 
 @MainActor
-private final class OverlayControlsView: NSView {
-    override var mouseDownCanMoveWindow: Bool { false }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        guard let hit = super.hitTest(point) else { return nil }
-        if hit === self || hit is NSVisualEffectView { return nil }
-        return hit
-    }
-}
-
-// MARK: – Corner button (glass circle, secondary action)
-
-@MainActor
-private final class OverlayCornerButton: NSButton {
-
-    private var trackingArea: NSTrackingArea?
-    private var isHovered = false
-
-    // Let the first click land on the button even if the overlay window
-    // isn't key yet — otherwise the first click just activates the window
-    // and the user has to click twice for anything to happen.
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    // Suppress the default AppKit focus-ring line that paints under the
-    // button when it becomes first responder.
-    override var focusRingType: NSFocusRingType {
-        get { .none }
-        set { _ = newValue }
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let old = trackingArea { removeTrackingArea(old) }
-        let area = NSTrackingArea(rect: bounds, options: [.activeAlways, .mouseEnteredAndExited], owner: self)
-        addTrackingArea(area)
-        trackingArea = area
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        isHovered = true
-        layer?.backgroundColor = ShotnixColors.cornerButtonHover.hudCGColor
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        isHovered = false
-        layer?.backgroundColor = ShotnixColors.cornerButtonBackground.hudCGColor
-    }
-
-    /// Presses in about its center. NSButton tracks the click inside
-    /// `super.mouseDown` and never gets `mouseUp`, so the spring back runs
-    /// when that returns.
-    override func mouseDown(with event: NSEvent) {
-        layer?.backgroundColor = ShotnixColors.cornerButtonPressed.hudCGColor
-        guard let layer else { return super.mouseDown(with: event) }
-        let pressed = layer.scaledAboutCenter(0.92)
-        layer.transform = pressed
-        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .default)
-        super.mouseDown(with: event)
-        let spring = CASpringAnimation(keyPath: "transform")
-        spring.fromValue = NSValue(caTransform3D: pressed)
-        spring.toValue = NSValue(caTransform3D: CATransform3DIdentity)
-        spring.mass = 1.0
-        spring.stiffness = 300
-        spring.damping = 15
-        spring.initialVelocity = 0
-        spring.duration = spring.settlingDuration
-        layer.add(spring, forKey: "bounceBack")
-        layer.transform = CATransform3DIdentity
-        layer.backgroundColor = isHovered
-            ? ShotnixColors.cornerButtonHover.hudCGColor
-            : ShotnixColors.cornerButtonBackground.hudCGColor
-    }
-}
-
-@MainActor
-private final class OverlayPillButton: NSButton {
-    private var trackingArea: NSTrackingArea?
-    private var isHovered = false
-
+private final class OverlayToolbarButton: NSButton {
     override init(frame: NSRect) {
         super.init(frame: frame)
-        wantsLayer = true
         isBordered = false
-        bezelStyle = .regularSquare
+        imagePosition = .imageOnly
+        imageScaling = .scaleNone
+        contentTintColor = .white
         setButtonType(.momentaryChange)
-        alignment = .center
+        wantsLayer = true
+        layer?.cornerRadius = 6
+        layer?.cornerCurve = .continuous
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited], owner: self))
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -1136,35 +973,22 @@ private final class OverlayPillButton: NSButton {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
 
-    override var focusRingType: NSFocusRingType {
-        get { .none }
-        set { _ = newValue }
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let old = trackingArea { removeTrackingArea(old) }
-        let area = NSTrackingArea(rect: bounds, options: [.activeAlways, .mouseEnteredAndExited], owner: self)
-        addTrackingArea(area)
-        trackingArea = area
-    }
-
     override func mouseEntered(with event: NSEvent) {
-        isHovered = true
-        layer?.backgroundColor = ShotnixColors.pillButtonHover.hudCGColor
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
     }
 
     override func mouseExited(with event: NSEvent) {
-        isHovered = false
-        layer?.backgroundColor = ShotnixColors.pillButtonBackground.hudCGColor
+        layer?.backgroundColor = nil
     }
 
     override func mouseDown(with event: NSEvent) {
-        layer?.backgroundColor = ShotnixColors.pillButtonPressed.hudCGColor
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.22).cgColor
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .default)
         super.mouseDown(with: event)
-        layer?.backgroundColor = isHovered
-            ? ShotnixColors.pillButtonHover.hudCGColor
-            : ShotnixColors.pillButtonBackground.hudCGColor
+        if let window, bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil)) {
+            mouseEntered(with: event)
+        } else {
+            mouseExited(with: event)
+        }
     }
 }

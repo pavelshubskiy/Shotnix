@@ -209,20 +209,30 @@ final class CaptureLocalizationTests: XCTestCase {
             L10n.use(language == "en" ? nil : language)
             let thumbnail = QuickAccessWindow(image: image, historyItem: item, historyManager: manager)
             thumbnail.setFrameOrigin(RecordingUITestSupport.offscreen)
-            thumbnail.setHovered(true)
             RecordingUITestSupport.spinRunLoop(0.3)
             let root = try XCTUnwrap(thumbnail.contentView)
-            let titles = [L("Copy"), L("Save"), L("Text")]
-            let pills = RecordingUITestSupport.allSubviews(of: root).compactMap { $0 as? NSButton }.filter { titles.contains($0.attributedTitle.string) }
-            XCTAssertEqual(pills.count, 3, language)
-            for pill in pills {
-                let frame = pill.convert(pill.bounds, to: root)
-                XCTAssertTrue(root.bounds.insetBy(dx: 8, dy: 0).contains(frame), "\(language): \(pill.attributedTitle.string) stays on the card")
-                XCTAssertLessThanOrEqual(pill.attributedTitle.size().width + 12, frame.width, "\(language): \(pill.attributedTitle.string) fits its pill")
+            let views = RecordingUITestSupport.allSubviews(of: root)
+            let preview = try XCTUnwrap(views.compactMap { $0 as? NSImageView }.first)
+            let previewFrame = preview.convert(preview.bounds, to: root)
+            let buttons = views.compactMap { $0 as? NSButton }.sorted { $0.frame.minX < $1.frame.minX }
+            let labels = [L("Copy image to clipboard"), L("Save screenshot to disk"), L("Edit"),
+                          L("Copy recognized text (OCR)"), L("Pin"), L("Delete"), L("Close")]
+            XCTAssertEqual(buttons.compactMap(\.toolTip), labels, language)
+            XCTAssertEqual(buttons.compactMap { $0.accessibilityLabel() }, labels, language)
+            for button in buttons {
+                let frame = button.convert(button.bounds, to: root)
+                XCTAssertNotNil(button.image, language)
+                XCTAssertEqual(button.alphaValue, 1, language)
+                XCTAssertFalse(button.isHiddenOrHasHiddenAncestor, language)
+                XCTAssertTrue(root.bounds.contains(frame), language)
+                XCTAssertLessThanOrEqual(frame.maxY, previewFrame.minY, language)
             }
-            if language == "en" {
-                XCTAssertEqual(pills.map { $0.frame.width }, pills.map { ceil($0.attributedTitle.size().width) + 28 }, "English keeps the designed padding")
-                XCTAssertEqual(QuickAccessWindow.pillFontSize(titles: titles, available: 216), 13, "and the designed 13 pt")
+            let points = [CGPoint(x: previewFrame.midX, y: previewFrame.midY),
+                          CGPoint(x: previewFrame.minX + 20, y: previewFrame.maxY - 20),
+                          CGPoint(x: previewFrame.maxX - 20, y: previewFrame.minY + 20)]
+            for hovered in [false, true] {
+                thumbnail.setHovered(hovered)
+                for point in points { XCTAssertTrue(root.hitTest(point) === preview, language) }
             }
             try snapshot(thumbnail, "\(language)/quick-access")
             thumbnail.closeFromCommand()

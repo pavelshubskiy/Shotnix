@@ -36,7 +36,7 @@ final class CaptureLocalizationTests: XCTestCase {
     func testStringsResolveInEachLanguage() {
         L10n.use("de")
         XCTAssertEqual(RecordingQuality.balanced.displayName, "Ausgewogen")
-        XCTAssertEqual(RecordingTargetKind.area.title, "Bereich", "the same word as Capture Area's")
+        XCTAssertEqual(RecordingTargetKind.area.recordingTitle, "Bereich aufzeichnen")
         XCTAssertEqual(L("\(1) links"), "1 Link")
         XCTAssertEqual(L("\(3) screens"), "3 Bildschirme")
         XCTAssertEqual(L("\(1) lines · found \("eine Tabelle")"), "1 Zeile · gefunden: eine Tabelle", "the count decides the form, the list follows")

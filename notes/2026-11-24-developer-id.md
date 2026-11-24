@@ -1,0 +1,6 @@
+# Подпись Shotnix Fork для другого Mac
+
+- Проверены инструкции Apple по Developer ID и нотариализации. Для прямой раздачи форка нужны членство в Apple Developer Program (99 USD в год, цена зависит от региона), сертификат Developer ID Application, Hardened Runtime, доверенная метка времени и нотариализация сборки. Стандартное подтверждение первого открытия скачанного приложения и разрешение на запись экрана выдаёт macOS.
+- В текущей среде `security find-identity -v -p codesigning` показала 0 действующих идентификаторов подписи. `build-app.sh --local-fork` принудительно выбирает локальный сертификат, а обычный режим устанавливает `Shotnix.app` в `/Applications`. Для раздачи нужен отдельный режим сборки форка с подписью Developer ID. Для упаковки и нотариализации в репозитории есть `make-dmg.sh` и `notarize-dmg.sh`.
+- Сертификат не выпускался. Сборку не подписывали для распространения и не отправляли в Apple.
+- Источники: [вступление в Apple Developer Program](https://developer.apple.com/help/account/membership/program-enrollment), [выпуск Developer ID](https://developer.apple.com/help/account/certificates/create-developer-id-certificates), [нотариализация](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution), [первый запуск](https://support.apple.com/en-us/102445).

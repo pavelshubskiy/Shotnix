@@ -104,7 +104,11 @@ if ! otool -l "$APP_BUNDLE/Contents/MacOS/$APP_NAME" | grep -q "@executable_path
 fi
 
 echo "Signing with $SIGN_IDENTITY..."
-SIGN_ARGS=(--force --deep --sign "$SIGN_IDENTITY" --options runtime --entitlements "$ENTITLEMENTS")
+SIGN_ARGS=(--force --deep --sign "$SIGN_IDENTITY" --entitlements "$ENTITLEMENTS")
+# Ad-hoc signing has no Team ID for Hardened Runtime to validate Sparkle against.
+if [ "$SIGN_IDENTITY" != "-" ]; then
+    SIGN_ARGS+=(--options runtime)
+fi
 
 case "$TIMESTAMP_MODE" in
     1|true|yes|on)

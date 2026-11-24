@@ -249,12 +249,12 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         )
     }
 
-    /// Renders the full capture inside the given point size with high-quality
+    /// Fills the given point size with a center-cropped capture, using high-quality
     /// interpolation. The GPU's default layer scaling softens small text;
     /// pre-scaling on the CPU keeps UI captures (menus, dialogs) crisp.
     /// Preserves the source's RGB color space so ICC-correct captures don't
     /// shift. Falls back to the original image on any failure.
-    private func crispPreviewImage(for source: NSImage, fitting size: NSSize) -> NSImage {
+    private func crispPreviewImage(for source: NSImage, filling size: NSSize) -> NSImage {
         guard size.width > 1, size.height > 1, let cgImage = source.bestCGImage else { return source }
         let scale = NSScreen.main?.backingScaleFactor ?? 2.0
         let targetWidth = Int((size.width * scale).rounded())
@@ -272,9 +272,9 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return source }
         context.interpolationQuality = .high
-        let fitScale = min(CGFloat(targetWidth) / CGFloat(max(cgImage.width, 1)), CGFloat(targetHeight) / CGFloat(max(cgImage.height, 1)))
-        let drawWidth = CGFloat(cgImage.width) * fitScale
-        let drawHeight = CGFloat(cgImage.height) * fitScale
+        let fillScale = max(CGFloat(targetWidth) / CGFloat(max(cgImage.width, 1)), CGFloat(targetHeight) / CGFloat(max(cgImage.height, 1)))
+        let drawWidth = CGFloat(cgImage.width) * fillScale
+        let drawHeight = CGFloat(cgImage.height) * fillScale
         context.draw(cgImage, in: CGRect(
             x: (CGFloat(targetWidth) - drawWidth) / 2,
             y: (CGFloat(targetHeight) - drawHeight) / 2,
@@ -310,7 +310,7 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         let thumbFrame = NSRect(x: Self.previewInset, y: Self.toolbarHeight + Self.progressHeight,
                                 width: Self.previewSize.width - 2 * Self.previewInset, height: Self.previewSize.height)
         let thumb = DraggableImageView(frame: thumbFrame)
-        thumb.image = crispPreviewImage(for: image, fitting: thumbFrame.size)
+        thumb.image = crispPreviewImage(for: image, filling: thumbFrame.size)
         thumb.imageScaling = .scaleProportionallyUpOrDown
         thumb.imageAlignment = .alignCenter
         thumb.wantsLayer = true

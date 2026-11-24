@@ -121,8 +121,6 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
             backing: .buffered,
             defer: false
         )
-        // The action bar uses the same dark appearance as the other capture HUDs.
-        staysDark()
         isOpaque = false
         backgroundColor = .clear
         level = .floating
@@ -295,7 +293,6 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         clipView.layer?.cornerRadius = Self.cornerRadius
         clipView.layer?.cornerCurve = .continuous
         clipView.layer?.masksToBounds = true
-        clipView.layer?.backgroundColor = ShotnixColors.overlayContainerFill.withAlphaComponent(1).hudCGColor
         container.addSubview(clipView)
 
         let borderView = PassthroughView(frame: container.bounds)
@@ -303,7 +300,6 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         borderView.layer?.cornerRadius = Self.cornerRadius
         borderView.layer?.cornerCurve = .continuous
         borderView.layer?.borderWidth = 1
-        borderView.layer?.borderColor = ShotnixColors.overlayBorder.hudCGColor
         container.addSubview(borderView)
 
         // The whole preview is the drag target. Actions live below it.
@@ -314,7 +310,6 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         thumb.imageScaling = .scaleProportionallyUpOrDown
         thumb.imageAlignment = .alignCenter
         thumb.wantsLayer = true
-        thumb.layer?.backgroundColor = NSColor(white: 0.055, alpha: 1).cgColor
         thumb.layer?.cornerRadius = 9
         thumb.layer?.cornerCurve = .continuous
         thumb.layer?.masksToBounds = true
@@ -328,23 +323,27 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         thumb.onDragCompleted = { [weak self] in self?.animatedClose() }
         clipView.addSubview(thumb)
 
-        clipView.addSubview(makeToolbar())
+        let divider = PassthroughView()
+        clipView.addSubview(makeToolbar(divider: divider))
+
+        var progressTrackLayer: CALayer?
+        var progressFillLayer: CALayer?
 
         // Progress bar at the very bottom — thin, bright accent line
         let timeout = Settings.overlayTimeout
         if timeout > 0 {
             let progressBg = NSView(frame: NSRect(x: 0, y: 0, width: Self.previewSize.width, height: Self.progressHeight))
             progressBg.wantsLayer = true
-            progressBg.layer?.backgroundColor = ShotnixColors.progressBackground.hudCGColor
             clipView.addSubview(progressBg)
 
             let progressFill = NSView(frame: progressBg.bounds)
             progressFill.wantsLayer = true
-            progressFill.layer?.backgroundColor = NSColor.controlAccentColor.hudCGColor
             progressFill.layer?.anchorPoint = CGPoint(x: 0, y: 0.5)
             progressFill.layer?.position = CGPoint(x: 0, y: Self.progressHeight / 2)
             progressBg.addSubview(progressFill)
             timeoutProgressLayer = progressFill.layer
+            progressTrackLayer = progressBg.layer
+            progressFillLayer = progressFill.layer
 
             animateTimeoutProgress(duration: timeout)
 
@@ -352,9 +351,18 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
                 DispatchQueue.main.async { self?.closeAfterTimeout() }
             }
         }
+        container.applyColors = {
+            clipView.layer?.backgroundColor = ShotnixColors.overlayContainerFill.withAlphaComponent(1).cgColor
+            borderView.layer?.borderColor = ShotnixColors.overlayBorder.cgColor
+            divider.layer?.backgroundColor = ShotnixColors.overlayBorder.cgColor
+            thumb.layer?.backgroundColor = ShotnixTheme.shadeColor(0.5).cgColor
+            progressTrackLayer?.backgroundColor = ShotnixColors.progressBackground.cgColor
+            progressFillLayer?.backgroundColor = NSColor.controlAccentColor.cgColor
+        }
+        container.refreshColors()
     }
 
-    private func makeToolbar() -> NSView {
+    private func makeToolbar(divider: PassthroughView) -> NSView {
         let bar = NSView(frame: NSRect(x: 0, y: Self.progressHeight, width: Self.previewSize.width, height: Self.toolbarHeight))
         let actions: [(symbol: String, label: String, selector: Selector)] = [
             ("doc.on.doc", L("Copy image to clipboard"), #selector(copyAction)),
@@ -373,9 +381,8 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         var x = (bar.bounds.width - rowWidth) / 2
         for (index, action) in actions.enumerated() {
             if index == 5 {
-                let divider = PassthroughView(frame: NSRect(x: x + 2, y: 13, width: 1, height: 16))
+                divider.frame = NSRect(x: x + 2, y: 13, width: 1, height: 16)
                 divider.wantsLayer = true
-                divider.layer?.backgroundColor = ShotnixColors.overlayBorder.hudCGColor
                 bar.addSubview(divider)
                 x += groupGap
             }
@@ -904,6 +911,19 @@ private final class DraggableImageView: NSImageView, NSDraggingSource {
 
 @MainActor
 private final class OverlayContentView: NSView {
+    var applyColors: (() -> Void)?
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refreshColors()
+    }
+
+    func refreshColors() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            applyColors?()
+        }
+    }
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var acceptsFirstResponder: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
@@ -918,6 +938,8 @@ private final class PassthroughView: NSView {
 @MainActor
 private final class OverlayToolbarButton: NSButton {
     private let isPrimary: Bool
+    private var hovered = false
+    private var pressed = false
 
     init(frame: NSRect, isPrimary: Bool) {
         self.isPrimary = isPrimary
@@ -925,7 +947,7 @@ private final class OverlayToolbarButton: NSButton {
         isBordered = false
         imagePosition = .imageOnly
         imageScaling = .scaleNone
-        contentTintColor = isPrimary ? .black : NSColor.white.withAlphaComponent(0.86)
+        contentTintColor = isPrimary ? ShotnixTheme.onSolidInkColor : ShotnixTheme.inkColor(0.86)
         setButtonType(.momentaryChange)
         wantsLayer = true
         layer?.cornerRadius = 7
@@ -939,28 +961,34 @@ private final class OverlayToolbarButton: NSButton {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
 
-    private func updateFill(hovered: Bool = false, pressed: Bool = false) {
-        if isPrimary {
-            let brightness = pressed ? 0.78 : (hovered ? 1 : 0.91)
-            layer?.backgroundColor = NSColor(white: brightness, alpha: 1).cgColor
-        } else {
-            let opacity = pressed ? 0.22 : (hovered ? 0.12 : 0)
-            layer?.backgroundColor = NSColor.white.withAlphaComponent(opacity).cgColor
-        }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateFill()
+    }
+
+    private func updateFill() {
+        let color = isPrimary
+            ? ShotnixTheme.solidInkColor(pressed ? 0.78 : (hovered ? 1 : 0.91))
+            : ShotnixTheme.inkColor(pressed ? 0.22 : (hovered ? 0.12 : 0))
+        layer?.backgroundColor = color.cgColor(in: self)
     }
 
     override func mouseEntered(with event: NSEvent) {
-        updateFill(hovered: true)
+        hovered = true
+        updateFill()
     }
 
     override func mouseExited(with event: NSEvent) {
+        hovered = false
         updateFill()
     }
 
     override func mouseDown(with event: NSEvent) {
-        updateFill(pressed: true)
+        pressed = true
+        updateFill()
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .default)
         super.mouseDown(with: event)
+        pressed = false
         if let window, bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil)) {
             mouseEntered(with: event)
         } else {

@@ -8,7 +8,7 @@ enum ShotnixColors {
     static let overlayContainerFill = NSColor(name: "overlayContainerFill") { appearance in
         switch appearance.bestMatch(from: [.aqua, .darkAqua]) {
         case .darkAqua: return NSColor(white: 0.11, alpha: 0.96)
-        default:        return NSColor(white: 0.18, alpha: 0.96)
+        default:        return NSColor(white: 0.98, alpha: 0.96)
         }
     }
 

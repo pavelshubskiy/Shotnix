@@ -3,15 +3,15 @@ import CoreImage
 import QuartzCore
 
 /// Post-capture floating thumbnail with quick action buttons.
-/// Position and dismiss timeout are controlled via Preferences → Settings.
+/// Area captures can anchor it to the pointer; other captures use the corner stack.
 @MainActor
 final class QuickAccessOverlay {
 
     /// - Parameter autoSaving: Save automatically is writing this capture;
     ///   the card hears the result through `autoSaveFinished`.
     @discardableResult
-    static func show(image: NSImage, historyItem: HistoryItem, historyManager: HistoryManager, autoSaving: Bool = false) -> QuickAccessWindow {
-        let window = QuickAccessWindow(image: image, historyItem: historyItem, historyManager: historyManager)
+    static func show(image: NSImage, historyItem: HistoryItem, historyManager: HistoryManager, autoSaving: Bool = false, anchor: CGPoint? = nil) -> QuickAccessWindow {
+        let window = QuickAccessWindow(image: image, historyItem: historyItem, historyManager: historyManager, anchor: anchor)
         window.autoSaveState = autoSaving ? .writing : .none
         window.show()
         return window
@@ -30,6 +30,23 @@ final class QuickAccessOverlay {
         let destination = folderName.isEmpty ? folder.lastPathComponent : folderName
         let file = url.lastPathComponent
         return L("Saved \(file) to \(destination) — click to reveal in Finder")
+    }
+}
+
+enum QuickAccessPointerLayout {
+    static func origin(near point: CGPoint, visibleFrame: CGRect, cardSize: CGSize) -> CGPoint {
+        let gap: CGFloat = 12
+        let right = point.x + gap
+        let left = point.x - gap - cardSize.width
+        let below = point.y - gap - cardSize.height
+        let above = point.y + gap
+
+        let maxX = visibleFrame.maxX - cardSize.width
+        let maxY = visibleFrame.maxY - cardSize.height
+        let x = right <= maxX ? right : left
+        let y = below >= visibleFrame.minY ? below : above
+        return CGPoint(x: max(visibleFrame.minX, min(x, maxX)),
+                       y: max(visibleFrame.minY, min(y, maxY)))
     }
 }
 
@@ -82,16 +99,18 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
     private let historyItem: HistoryItem
     private let historyManager: HistoryManager
     private let image: NSImage
+    private var anchor: CGPoint?
     private var controlsOverlay: NSView?
     private weak var timeoutProgressLayer: CALayer?
     private var isHovered = false
     private var mouseInsideOverlay = false
     private var swipeAccumX: CGFloat = 0
 
-    init(image: NSImage, historyItem: HistoryItem, historyManager: HistoryManager) {
+    init(image: NSImage, historyItem: HistoryItem, historyManager: HistoryManager, anchor: CGPoint? = nil) {
         self.image = image
         self.historyItem = historyItem
         self.historyManager = historyManager
+        self.anchor = anchor
 
         let thumbW: CGFloat = 240
         let thumbH: CGFloat = 150
@@ -515,10 +534,11 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
         layer.add(shrink, forKey: "timeoutProgress")
     }
 
-    /// Screen the capture was taken on — post-capture UI appears there instead
-    /// of whichever screen happens to be main, so it pops up where the user is
-    /// looking. Falls back to main for items without a stored capture rect.
+    /// The pointer's display, the captured display, or the main display.
     private var captureScreen: NSScreen? {
+        if let anchor, let screen = NSScreen.screens.first(where: { $0.frame.contains(anchor) }) {
+            return screen
+        }
         if let rect = historyItem.captureRect?.cgRect,
            let screen = NSScreen.screenContaining(rect: rect) {
             return screen
@@ -552,7 +572,7 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
     /// down into the freed space. (Arrivals don't move anyone: the newcomer
     /// simply lands on top of the pile.)
     private static func relayoutStacks(animated: Bool) {
-        let active = openWindows.filter { !$0.isClosing }
+        let active = openWindows.filter { !$0.isClosing && $0.anchor == nil }
         let byScreen = Dictionary(grouping: active, by: { $0.screenKey })
 
         for (_, group) in byScreen {
@@ -600,14 +620,16 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
     }
 
     private func positionOverlay() {
-        // New captures land on top of the pile: my slot is however many
-        // cards are already stacked on this screen (self isn't in
-        // openWindows yet — show() appends after init).
-        let key = screenKey
-        let slot = Self.openWindows.filter { !$0.isClosing && $0.screenKey == key }.count
-        guard let origin = slotOrigin(index: slot) else { return }
+        if let anchor, let screen = captureScreen {
+            setFrameOrigin(QuickAccessPointerLayout.origin(near: anchor, visibleFrame: screen.visibleFrame, cardSize: frame.size))
+        } else {
+            // The newcomer lands above the existing corner cards.
+            let key = screenKey
+            let slot = Self.openWindows.filter { !$0.isClosing && $0.anchor == nil && $0.screenKey == key }.count
+            guard let origin = slotOrigin(index: slot) else { return }
+            setFrameOrigin(origin)
+        }
         // Start at final position (slide-up is handled by scale spring, not position offset)
-        setFrameOrigin(origin)
         alphaValue = 0
 
         // Order front WITHOUT activating or taking key — the user keeps typing
@@ -933,9 +955,13 @@ final class QuickAccessWindow: NSPanel, ShotnixCommandClosable {
     }
 
     func show() {
+        if anchor != nil {
+            // Keep the newest card at the pointer and move overlapping older cards into the stack.
+            for window in Self.openWindows where !window.isClosing && window.anchor != nil && window.frame.intersects(frame) {
+                window.anchor = nil
+            }
+        }
         QuickAccessWindow.openWindows.append(self)
-        // The newcomer already sits on top of the pile (positionOverlay put
-        // it there); nobody else moves on arrival.
         Self.relayoutStacks(animated: true)
         Self.enforceStackLimit()
         // VoiceOver users otherwise get no sign the capture happened.

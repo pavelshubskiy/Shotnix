@@ -21,6 +21,25 @@ final class CaptureChromeTests: XCTestCase {
 
     // MARK: Quick access stack
 
+    func testAreaThumbnailSitsJustBelowAndRightOfTheReleasePoint() {
+        let visible = CGRect(x: 0, y: 40, width: 1440, height: 830)
+        let point = CGPoint(x: 500, y: 500)
+        let size = CGSize(width: 240, height: 152)
+        let origin = QuickAccessPointerLayout.origin(near: point, visibleFrame: visible, cardSize: size)
+        XCTAssertEqual(origin, CGPoint(x: 512, y: 336))
+    }
+
+    func testAreaThumbnailFlipsInwardAtTheBottomRightOfAnExternalDisplay() {
+        let visible = CGRect(x: -1440, y: 40, width: 1440, height: 830)
+        let point = CGPoint(x: -5, y: 42)
+        let size = CGSize(width: 240, height: 152)
+        let origin = QuickAccessPointerLayout.origin(near: point, visibleFrame: visible, cardSize: size)
+        let frame = CGRect(origin: origin, size: size)
+        XCTAssertTrue(visible.contains(frame))
+        XCTAssertEqual(frame.maxX, point.x - 12)
+        XCTAssertEqual(frame.minY, point.y + 12)
+    }
+
     func testStackOnASmallScreenNeverReachesUnderTheMenuBar() {
         // 1280×720 display, 25 pt menu bar.
         let visible = CGRect(x: 0, y: 0, width: 1280, height: 695)

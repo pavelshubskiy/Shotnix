@@ -28,6 +28,9 @@ final class AreaSelectionWindow: NSObject {
     /// made on, set just before the completion fires. The shot is cut from it.
     private(set) var selectedFrozenScreen: FrozenScreen?
 
+    /// Pointer position in global AppKit coordinates at the moment of capture.
+    private(set) var selectionEndPoint: CGPoint?
+
     /// How long the overlays wait for the stills when the screen freezes. A
     /// display whose still takes longer (ScreenCaptureKit busy elsewhere)
     /// freezes when it arrives: the crosshair never waits longer than this.
@@ -121,8 +124,9 @@ final class AreaSelectionWindow: NSObject {
         for (index, screen) in screens.enumerated() {
             let still = stills.indices.contains(index) ? stills[index] : nil
             let overlay = SelectionOverlayWindow(screen: screen, mode: mode, frozenImage: still?.image, freezes: freezesScreen)
-            overlay.selectionHandler = { [weak self] rect, windowID in
+            overlay.selectionHandler = { [weak self] rect, windowID, endPoint in
                 self?.selectedWindowID = windowID
+                self?.selectionEndPoint = endPoint
                 self?.finish(rect: rect, screen: screen, index: index)
             }
             overlay.cancelHandler = { [weak self] in self?.cancel() }
@@ -259,7 +263,7 @@ private final class StillArrivals {
 @MainActor
 private final class SelectionOverlayWindow: NSWindow {
 
-    var selectionHandler: ((CGRect, CGWindowID?) -> Void)?
+    var selectionHandler: ((CGRect, CGWindowID?, CGPoint?) -> Void)?
     var cancelHandler: (() -> Void)?
     var clickHandler: (() -> Void)?
     var selectionBeganHandler: (() -> Void)?
@@ -308,7 +312,9 @@ private final class SelectionOverlayWindow: NSWindow {
         container.addSubview(overlayView)
         contentView = container
         showBackdrop(frozenImage, freezes: freezes)
-        overlayView.selectionHandler = { [weak self] rect, windowID in self?.selectionHandler?(rect, windowID) }
+        overlayView.selectionHandler = { [weak self] rect, windowID, endPoint in
+            self?.selectionHandler?(rect, windowID, endPoint)
+        }
         overlayView.cancelHandler   = { [weak self] in self?.cancelHandler?() }
         overlayView.clickHandler    = { [weak self] in self?.clickHandler?() }
         overlayView.selectionBeganHandler = { [weak self] in self?.selectionBeganHandler?() }
@@ -370,7 +376,7 @@ final class SelectionOverlayView: NSView {
         case moving
     }
 
-    var selectionHandler: ((CGRect, CGWindowID?) -> Void)?
+    var selectionHandler: ((CGRect, CGWindowID?, CGPoint?) -> Void)?
     var cancelHandler:    (() -> Void)?
     /// A plain click (no drag) with no selection here to keep.
     var clickHandler:     (() -> Void)?
@@ -999,7 +1005,7 @@ final class SelectionOverlayView: NSView {
             if let r = highlightedWindowRect {
                 // Convert to global AppKit coordinates — view-local rects are
                 // only correct on the primary display (screen origin 0,0).
-                selectionHandler?(convertToScreen(r), highlightedWindowID)
+                selectionHandler?(convertToScreen(r), highlightedWindowID, nil)
             }
             return
         }
@@ -1009,7 +1015,7 @@ final class SelectionOverlayView: NSView {
         if stage == .adjusting {
             if confirmButtonRect(for: currentRect).contains(point)
                 || (event.clickCount == 2 && currentRect.contains(point)) {
-                commitSelection()
+                commitSelection(at: screenPoint(for: event))
                 return
             }
             if let handle = handle(at: point) {
@@ -1098,7 +1104,7 @@ final class SelectionOverlayView: NSView {
                     enterAdjustStage()
                 } else {
                     NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
-                    selectionHandler?(convertToScreen(currentRect), nil)
+                    selectionHandler?(convertToScreen(currentRect), nil, screenPoint(for: event))
                 }
             } else if let previous = replacedSelection {
                 // A plain click beside an adjustable selection keeps it.
@@ -1138,10 +1144,10 @@ final class SelectionOverlayView: NSView {
 
     /// Captures the adjusted selection (Return, the Capture button, or a
     /// double-click inside it).
-    func commitSelection() {
+    func commitSelection(at endPoint: CGPoint = NSEvent.mouseLocation) {
         guard stage == .adjusting, currentRect.width >= Self.minimumSize, currentRect.height >= Self.minimumSize else { return }
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
-        selectionHandler?(convertToScreen(currentRect), nil)
+        selectionHandler?(convertToScreen(currentRect), nil, endPoint)
     }
 
     override func mouseMoved(with event: NSEvent) {
@@ -1401,6 +1407,10 @@ final class SelectionOverlayView: NSView {
     }
 
     // MARK: – Helpers
+
+    private func screenPoint(for event: NSEvent) -> CGPoint {
+        window?.convertPoint(toScreen: event.locationInWindow) ?? event.locationInWindow
+    }
 
     private func convertToScreen(_ rect: NSRect) -> CGRect {
         guard let win = window else { return rect }

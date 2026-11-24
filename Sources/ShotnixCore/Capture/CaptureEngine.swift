@@ -109,6 +109,7 @@ final class CaptureEngine {
             guard let self else { return }
             // Read before releasing the selection window.
             let frozen = self.areaSelectionWindow?.selectedFrozenScreen
+            let overlayAnchor = self.areaSelectionWindow?.selectionEndPoint
             self.areaSelectionWindow = nil
             guard let rect else {
                 self.restoreDesktopIconsIfNeeded(hiddenByCapture)
@@ -116,7 +117,8 @@ final class CaptureEngine {
             }
             self.lastCaptureRect = rect
             Task {
-                await self.captureRect(rect, on: screen, type: .area, historyManager: historyManager, frozen: frozen)
+                await self.captureRect(rect, on: screen, type: .area, historyManager: historyManager,
+                                       frozen: frozen, overlayAnchor: overlayAnchor)
                 self.restoreDesktopIconsIfNeeded(hiddenByCapture)
             }
         }
@@ -804,7 +806,7 @@ final class CaptureEngine {
 
     /// `frozen`: the still the selection was made on, when the screen was
     /// frozen for it. The shot is then cut from it instead of captured now.
-    func captureRect(_ rect: CGRect, on screen: NSScreen, type: CaptureType = .area, historyManager: HistoryManager, playSound: Bool = true, frozen: FrozenScreen? = nil) async {
+    func captureRect(_ rect: CGRect, on screen: NSScreen, type: CaptureType = .area, historyManager: HistoryManager, playSound: Bool = true, frozen: FrozenScreen? = nil, overlayAnchor: CGPoint? = nil) async {
         let clamped = rect.intersection(screen.frame)
         let rect = clamped.isNull ? rect : clamped
         let started = CFAbsoluteTimeGetCurrent()
@@ -814,12 +816,13 @@ final class CaptureEngine {
             return
         }
         CapturePerformance.mark("\(type.rawValue) shot, start to image", since: started)
-        finishCapture(image: image, rect: rect, type: type, historyManager: historyManager, playSound: playSound, on: screen)
+        finishCapture(image: image, rect: rect, type: type, historyManager: historyManager,
+                      playSound: playSound, on: screen, overlayAnchor: overlayAnchor)
     }
 
     /// Shared post-capture pipeline: sound, haptic, history, auto-actions,
     /// overlay — and the first successful capture completes onboarding.
-    private func finishCapture(image: NSImage, rect: CGRect, type: CaptureType, historyManager: HistoryManager, playSound: Bool = true, on screen: NSScreen? = nil) {
+    private func finishCapture(image: NSImage, rect: CGRect, type: CaptureType, historyManager: HistoryManager, playSound: Bool = true, on screen: NSScreen? = nil, overlayAnchor: CGPoint? = nil) {
         if playSound { playCaptureSound() }
         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
         let item = historyManager.add(image: image, rect: rect, type: type)
@@ -833,7 +836,7 @@ final class CaptureEngine {
         }
         let card = Settings.afterCaptureShowOverlay
             ? QuickAccessOverlay.show(image: image, historyItem: item, historyManager: historyManager,
-                                      autoSaving: Settings.afterCaptureSaveAutomatically)
+                                      autoSaving: Settings.afterCaptureSaveAutomatically, anchor: overlayAnchor)
             : nil
         if Settings.afterCaptureSaveAutomatically {
             Self.autoSave(image, on: screen) { url in card?.autoSaveFinished(url) }

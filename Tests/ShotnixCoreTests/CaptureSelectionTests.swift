@@ -11,6 +11,7 @@ final class CaptureSelectionTests: XCTestCase {
     private var window: NSWindow!
     private var view: SelectionOverlayView!
     private var captured: [CGRect] = []
+    private var captureEndPoint: CGPoint?
     private var cancelled = 0
 
     override func setUp() async throws {
@@ -21,8 +22,12 @@ final class CaptureSelectionTests: XCTestCase {
         window.contentView = view
         view.captureImmediately = true
         captured = []
+        captureEndPoint = nil
         cancelled = 0
-        view.selectionHandler = { [weak self] rect, _ in self?.captured.append(rect) }
+        view.selectionHandler = { [weak self] rect, _, endPoint in
+            self?.captured.append(rect)
+            self?.captureEndPoint = endPoint
+        }
         view.cancelHandler = { [weak self] in self?.cancelled += 1 }
     }
 
@@ -36,6 +41,7 @@ final class CaptureSelectionTests: XCTestCase {
         drag(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 300, y: 250))
         XCTAssertEqual(captured.count, 1)
         XCTAssertEqual(captured.first?.size, CGSize(width: 200, height: 150))
+        XCTAssertEqual(captureEndPoint, window.convertPoint(toScreen: CGPoint(x: 300, y: 250)))
         XCTAssertEqual(view.stage, .drawing, "done — the overlay is torn down by its owner")
     }
 
@@ -119,6 +125,7 @@ final class CaptureSelectionTests: XCTestCase {
         let button = view.confirmButtonRect(for: view.currentRect)
         click(at: CGPoint(x: button.midX, y: button.midY))
         XCTAssertEqual(captured.count, 1)
+        XCTAssertEqual(captureEndPoint, window.convertPoint(toScreen: CGPoint(x: button.midX, y: button.midY)))
 
         view.resetSelection()
         enterAdjustStage(CGRect(x: 100, y: 200, width: 200, height: 150))
@@ -149,6 +156,7 @@ final class CaptureSelectionTests: XCTestCase {
         XCTAssertEqual(rect?.maxX, window.frame.maxX)
         XCTAssertEqual(rect?.maxY, window.frame.maxY)
         XCTAssertEqual(rect?.size, CGSize(width: 200, height: 200))
+        XCTAssertEqual(captureEndPoint, window.convertPoint(toScreen: CGPoint(x: 1300, y: 900)))
     }
 
     func testHintLineExplainsWhatReleaseWillDo() {

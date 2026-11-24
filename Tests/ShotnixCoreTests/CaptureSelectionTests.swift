@@ -17,7 +17,7 @@ final class CaptureSelectionTests: XCTestCase {
     override func setUp() async throws {
         _ = NSApplication.shared
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.borderless], backing: .buffered, defer: false)
-        view = SelectionOverlayView(mode: .area, frozenImage: nil)
+        view = SelectionOverlayView(mode: .area)
         view.frame = NSRect(x: 0, y: 0, width: 800, height: 600)
         window.contentView = view
         view.captureImmediately = true

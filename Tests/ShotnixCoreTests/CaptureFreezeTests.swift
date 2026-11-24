@@ -91,20 +91,20 @@ final class CaptureFreezeTests: XCTestCase {
 
     // MARK: Live, as before
 
-    func testWithoutFreezingTheCrosshairIsUpAtOnceAndTheShotIsTakenLive() async throws {
-        let selection = makeSelection(freezes: false, delay: 0.15)
+    func testWithoutFreezingTheOverlayShowsImmediatelyAndTheShotIsTakenLive() async throws {
+        var asked = 0
+        let selection = makeSelection(freezes: false, delay: 0.15, onStill: { asked += 1 })
         let started = Date()
         await selection.prepareAndShow(engine: engine)
         XCTAssertLessThan(Date().timeIntervalSince(started), 0.1, "the overlays don't wait for the stills")
         XCTAssertTrue(selection.isShowingOverlays)
         XCTAssertEqual(selection.showsFrozenScreens, NSScreen.screens.map { _ in false })
 
-        try await sleep(0.4)
-        XCTAssertEqual(selection.showsFrozenScreens, NSScreen.screens.map { _ in false }, "the stills only feed the loupe")
         try await select(on: NSScreen.screens[0])
         XCTAssertEqual(completions.count, 1)
         XCTAssertEqual(completions.first??.size, CGSize(width: 200, height: 150))
         XCTAssertNil(selection.selectedFrozenScreen, "captured live")
+        XCTAssertEqual(asked, 0, "live selection does not request display stills")
     }
 
     func testWindowModeNeverFreezes() async throws {
@@ -154,7 +154,7 @@ final class CaptureFreezeTests: XCTestCase {
         XCTAssertNil(selection.selectedFrozenScreen)
     }
 
-    func testAStillThatTakesTooLongDoesNotHoldTheCrosshair() async throws {
+    func testAStillThatTakesTooLongDoesNotHoldTheOverlay() async throws {
         AreaSelectionWindow.freezeDeadline = 0.15
         let selection = makeSelection(freezes: true, delay: 1.2)
         let started = Date()

@@ -342,7 +342,7 @@ final class CaptureLocalizationTests: XCTestCase {
         // The size of a 13-inch MacBook's screen.
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800), styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        let view = SelectionOverlayView(mode: .area, frozenImage: nil)
+        let view = SelectionOverlayView(mode: .area)
         view.frame = NSRect(x: 0, y: 0, width: 1280, height: 800)
         window.contentView = view
         windows.append(window)
